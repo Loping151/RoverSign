@@ -6,11 +6,14 @@
 ├── gsuid_core
 │   ├── gsuid_core
 │   │   ├── plugins
-│   │   │   ├── WutheringWavesUID
+│   │   │   ├── XutheringWavesUID
 │   │   │   ├── RoverSign
 
 
 cd gsuid_core/gsuid_core/plugins
-git clone --depth=1 https://github.com/tyql688/RoverSign 
+git clone --depth=1 https://github.com/Loping151/RoverSign 
 ```
 
+依赖：XutheringWavesUID 及其数据库
+
+考虑到库街区不让重复登录，希望后续Nami也能支持。
