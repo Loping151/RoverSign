@@ -155,7 +155,7 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
         return WAVES_CODE_101_MSG
 
     msg_list = []
-    expire_uid = []
+    expire_uid = set()  # 使用 set 自动去重
     bbs_link_config = get_bbs_link_config()
 
     # 使用第一个鸣潮 UID 作为主 UID（用于社区签到和获取 cookie）
@@ -165,14 +165,14 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
     if main_uid:
         main_token = await rover_api.get_self_waves_ck(main_uid, ev.user_id, ev.bot_id)
         if not main_token:
-            expire_uid.append(main_uid)
+            expire_uid.add(main_uid)
 
     # 鸣潮签到
     if waves_enabled and waves_uid_list:
         for waves_uid in waves_uid_list:
             token = main_token if waves_uid == main_uid else await rover_api.get_self_waves_ck(waves_uid, ev.user_id, ev.bot_id)
             if not token:
-                expire_uid.append(waves_uid)
+                expire_uid.add(waves_uid)
                 continue
 
             waves_signed = False
