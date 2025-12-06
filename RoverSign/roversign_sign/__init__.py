@@ -34,7 +34,6 @@ async def rover_user_sign(bot: Bot, ev: Event):
     return await bot.send(msg)
 
 
-@scheduler.scheduled_job("cron", hour=SIGN_TIME[0], minute=SIGN_TIME[1])
 async def rover_auto_sign():
     msg = await rover_auto_sign_task()
     subscribes = await gs_subscribe.get_subscribe(BoardcastTypeEnum.SIGN_RESULT)
@@ -42,6 +41,65 @@ async def rover_auto_sign():
         logger.info(f"[RoverSign]推送主人签到结果: {msg}")
         for sub in subscribes:
             await sub.send(msg)
+
+async def rover_auto_sign_1():
+    await rover_auto_sign()
+
+async def rover_auto_sign_2():
+    await rover_auto_sign()
+
+async def rover_auto_sign_3():
+    await rover_auto_sign()
+
+async def rover_auto_sign_4():
+    await rover_auto_sign()
+
+
+# 添加主签到任务
+SIGN_TIME_HOUR = int(SIGN_TIME[0])
+SIGN_TIME_MINUTE = SIGN_TIME[1]
+
+scheduler.add_job(
+    rover_auto_sign,
+    "cron",
+    id="rs0",
+    hour=SIGN_TIME_HOUR,
+    minute=SIGN_TIME_MINUTE,
+)
+
+# 如果开启反复签到，添加额外的4次签到任务
+if RoverSignConfig.get_config("RepeatSignin").data:
+    scheduler.add_job(
+        rover_auto_sign_1,
+        "cron",
+        id="rs1",
+        hour=(SIGN_TIME_HOUR + 9) % 24,
+        minute=SIGN_TIME_MINUTE,
+    )
+    scheduler.add_job(
+        rover_auto_sign_2,
+        "cron",
+        id="rs2",
+        hour=(SIGN_TIME_HOUR + 12) % 24,
+        minute=SIGN_TIME_MINUTE,
+    )
+    scheduler.add_job(
+        rover_auto_sign_3,
+        "cron",
+        id="rs3",
+        hour=(SIGN_TIME_HOUR + 13) % 24,
+        minute=SIGN_TIME_MINUTE,
+    )
+    scheduler.add_job(
+        rover_auto_sign_4,
+        "cron",
+        id="rs4",
+        hour=(SIGN_TIME_HOUR + 14) % 24,
+        minute=SIGN_TIME_MINUTE,
+    )
+    logger.info("[RoverSign] 反复签到已开启，将执行5次自动签到")
+else:
+    logger.info("[RoverSign] 反复签到未开启，仅执行1次自动签到")
 
 
 @waves_sign_all.on_fullmatch(("全部签到"))

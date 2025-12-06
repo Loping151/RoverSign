@@ -56,7 +56,7 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         ["3", "0"],
     ),
     "SigninConcurrentNum": GsIntConfig(
-        "自动签到并发数量", "自动签到并发数量", 1, max_value=5
+        "自动签到并发数量", "自动签到并发数量，用xw池子的不要高于5", 1, max_value=10
     ),
     "SigninConcurrentNumInterval": GsListStrConfig(
         "自动签到并发数量间隔，默认3-5秒",
@@ -96,5 +96,10 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
             "all",
             "do_sign_in",
         ],
+    ),
+    "RepeatSignin": GsBoolConfig(
+        "反复签到",
+        "开启后会在原定时签到基础上额外执行4次签到，一般每小时大约签800人（+9h、+12h、+13h、+14h）",
+        False,
     ),
 }
