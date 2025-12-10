@@ -86,26 +86,21 @@ async def action_waves_sign_in(uid: str, token: str):
 
 async def action_pgr_sign_in(uid: str, pgr_uid: str, token: str):
     """战双游戏签到"""
-    logger.debug(f"[action_pgr_sign_in] 开始战双签到 - uid: {uid}, pgr_uid: {pgr_uid}")
 
     signed = False
     if not await get_pgr_signin_config():
-        logger.debug(f"[action_pgr_sign_in] 战双签到开关未开启")
         return signed
 
     # 战双签到需要先获取正确的 serverId，所以直接调用 pgr_sign_in
     # 不在这里检查签到状态（会因为 serverId 不正确而返回 1513 错误）
-    logger.debug(f"[action_pgr_sign_in] 调用 pgr_sign_in 执行签到")
     res = await pgr_sign_in(uid, pgr_uid, token, isForce=False)
-    logger.debug(f"[action_pgr_sign_in] pgr_sign_in 返回结果: {res}")
 
     if "成功" in res or "已签到" in res:
         signed = True
         logger.info(f"[战双签到] {pgr_uid} 签到完成")
     else:
-        logger.warning(f"[action_pgr_sign_in] 签到失败: {res}")
+        logger.warning(f"签到失败: {res}")
 
-    logger.debug(f"[action_pgr_sign_in] 战双签到完成 - 最终状态: {signed}")
     return signed
 
 
@@ -322,8 +317,7 @@ async def rover_auto_sign_task():
                 waves_sign_user.add(user.uid)
                 is_need = True
 
-            if user.pgr_uid and hasattr(user, 'pgr_sign_switch') and user.pgr_sign_switch != "off":
-                # 如果 pgr_sign_switch 不为 'off' 且有 pgr_uid，添加到 user_list 中
+            if user.pgr_uid and user.sign_switch != "off":
                 pgr_sign_user.add(user.uid)
                 is_need = True
 
@@ -391,12 +385,11 @@ async def rover_auto_sign_task():
                 (RoverSignConfig.get_config("SchedSignin").data and user.uid in pgr_sign_user)
                 or RoverSignConfig.get_config("SigninMaster").data
             ):
-                pgr_switch = user.pgr_sign_switch if hasattr(user, 'pgr_sign_switch') else "off"
                 await single_pgr_daily_sign(
                     user.bot_id,
                     user.uid,
                     user.pgr_uid,
-                    pgr_switch,
+                    user.sign_switch,
                     user.user_id,
                     user.cookie,
                     private_pgr_sign_msgs,
