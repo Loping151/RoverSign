@@ -493,8 +493,6 @@ async def pgr_sign_in(uid: str, pgr_uid: str, ck: str, isForce: bool = False) ->
     """战双游戏签到"""
     from ..utils.api.api import PGR_GAME_ID
 
-    logger.debug(f"[pgr_sign_in] 开始执行 - uid: {uid}, pgr_uid: {pgr_uid}, isForce: {isForce}")
-
     # 先获取角色列表，获取正确的 serverId
     logger.debug(f"[pgr_sign_in] 调用 find_role_list - gameId: {PGR_GAME_ID}")
     role_list_res = await rover_api.find_role_list(ck, PGR_GAME_ID)
@@ -549,12 +547,12 @@ async def pgr_sign_in(uid: str, pgr_uid: str, ck: str, isForce: bool = False) ->
     if sign_in_res.success:
         # 签到成功
         await RoverSign.upsert_rover_sign(RoverSignData.build_pgr_game_sign(uid, pgr_uid))
-        logger.debug(f"[pgr_sign_in] 签到成功")
+        logger.debug("[pgr_sign_in] 签到成功")
         return "签到成功！"
     elif sign_in_res.code == 1511:
         # 已经签到
         await RoverSign.upsert_rover_sign(RoverSignData.build_pgr_game_sign(uid, pgr_uid))
-        logger.debug(f"[pgr_sign_in] 今日已签到 (code 1511)")
+        logger.debug("[pgr_sign_in] 今日已签到 (code 1511)")
         return "今日已签到！请勿重复签到！"
 
     # 签到失败

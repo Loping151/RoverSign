@@ -102,4 +102,19 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "开启后会在原定时签到基础上额外执行4次签到，一般每小时大约签800人（+9h、+12h、+13h、+14h）",
         False,
     ),
+    "SignCompleteText": GsStrConfig(
+        "签到完成文案",
+        "签到完成时显示的文案",
+        "✅ 已完成",
+    ),
+    "SignIncompleteText": GsStrConfig(
+        "签到未完成文案",
+        "签到未完成时显示的文案",
+        "❌ 未完成",
+    ),
+    "SignSkipText": GsStrConfig(
+        "签到跳过文案",
+        "签到已跳过时显示的文案",
+        "🚫 请勿重复签到",
+    ),
 }

@@ -22,7 +22,6 @@ exec_list.extend(
     [
         'ALTER TABLE WavesBind ADD COLUMN pgr_uid TEXT DEFAULT ""',
         'ALTER TABLE WavesUser ADD COLUMN pgr_uid TEXT DEFAULT ""',
-        'ALTER TABLE WavesUser ADD COLUMN pgr_sign_switch TEXT DEFAULT "off"',
         'ALTER TABLE RoverSign ADD COLUMN pgr_uid TEXT DEFAULT ""',
         'ALTER TABLE RoverSign ADD COLUMN pgr_game_sign INTEGER DEFAULT 0',
     ]
@@ -61,7 +60,6 @@ class WavesUser(User, table=True):
     platform: str = Field(default="", title="ck平台")
     stamina_bg_value: str = Field(default="", title="体力背景")
     bbs_sign_switch: str = Field(default="off", title="自动社区签到")
-    pgr_sign_switch: str = Field(default="off", title="自动战双签到")
     bat: str = Field(default="", title="bat")
     did: str = Field(default="", title="did")
 
