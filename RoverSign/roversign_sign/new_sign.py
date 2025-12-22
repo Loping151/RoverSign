@@ -19,7 +19,7 @@ from ..utils.database.models import (
 )
 from ..utils.database.states import SignStatus
 from ..utils.errors import WAVES_CODE_101_MSG
-from ..utils.api.api import WAVES_GAME_ID
+from ..utils.api.api import WAVES_GAME_ID, PGR_GAME_ID
 from ..utils.rover_api import rover_api
 from .main import (
     create_sign_info_image,
@@ -317,8 +317,10 @@ async def rover_auto_sign_task():
                 # 如果 SigninMaster 为 True，添加到 user_list 中
                 need_user_list.append(user)
                 bbs_user.add(user.uid)
-                waves_sign_user.add(user.uid)
-                if pgr_uid_list:
+                # 根据 game_id 判断加入哪个游戏签到列表
+                if user.game_id == WAVES_GAME_ID:
+                    waves_sign_user.add(user.uid)
+                elif user.game_id == PGR_GAME_ID and pgr_uid_list:
                     pgr_sign_user.add(user.uid)
                 continue
 
@@ -329,9 +331,10 @@ async def rover_auto_sign_task():
                 is_need = True
 
             if user.sign_switch != "off":
-                # 如果 sign_switch 不为 'off'，添加到 user_list 中
-                waves_sign_user.add(user.uid)
-                if pgr_uid_list:
+                # 如果 sign_switch 不为 'off'，根据 game_id 判断加入哪个游戏签到列表
+                if user.game_id == WAVES_GAME_ID:
+                    waves_sign_user.add(user.uid)
+                elif user.game_id == PGR_GAME_ID and pgr_uid_list:
                     pgr_sign_user.add(user.uid)
                 is_need = True
 

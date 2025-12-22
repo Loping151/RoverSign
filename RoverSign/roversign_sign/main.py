@@ -498,9 +498,9 @@ async def pgr_sign_in(
     from ..utils.api.api import PGR_GAME_ID
 
     # 先获取角色列表，获取正确的 serverId
-    logger.debug(f"[pgr_sign_in] 调用 find_role_list - gameId: {PGR_GAME_ID}")
+    logger.debug(f"[pgr_sign_in] 调用 find_role_list - uid: {uid}, pgr_uid: {pgr_uid}, gameId: {PGR_GAME_ID}")
     role_list_res = await rover_api.find_role_list(ck, PGR_GAME_ID)
-    logger.debug(f"[pgr_sign_in] find_role_list 返回 - success: {role_list_res.success}, code: {role_list_res.code}, msg: {role_list_res.msg}")
+    logger.debug(f"[pgr_sign_in] find_role_list 返回 - uid: {uid}, pgr_uid: {pgr_uid}, success: {role_list_res.success}, code: {role_list_res.code}, msg: {role_list_res.msg}")
 
     if not role_list_res.success:
         logger.debug(f"[战双签到] 获取角色列表失败: {role_list_res.msg}")
