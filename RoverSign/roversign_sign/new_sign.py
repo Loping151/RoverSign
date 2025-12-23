@@ -308,11 +308,6 @@ async def rover_auto_sign_task():
             if is_signed_waves_game and is_signed_pgr_game and is_signed_bbs:
                 continue
 
-            bind_data = await WavesBind.select_data(user.user_id, user.bot_id)
-            pgr_uid_list = []
-            if bind_data and bind_data.pgr_uid:
-                pgr_uid_list = [u for u in bind_data.pgr_uid.split("_") if u]
-
             if RoverSignConfig.get_config("SigninMaster").data:
                 # 如果 SigninMaster 为 True，添加到 user_list 中
                 need_user_list.append(user)
@@ -320,7 +315,7 @@ async def rover_auto_sign_task():
                 # 根据 game_id 判断加入哪个游戏签到列表
                 if user.game_id == WAVES_GAME_ID:
                     waves_sign_user.add(user.uid)
-                elif user.game_id == PGR_GAME_ID and pgr_uid_list:
+                elif user.game_id == PGR_GAME_ID:
                     pgr_sign_user.add(user.uid)
                 continue
 
@@ -334,7 +329,7 @@ async def rover_auto_sign_task():
                 # 如果 sign_switch 不为 'off'，根据 game_id 判断加入哪个游戏签到列表
                 if user.game_id == WAVES_GAME_ID:
                     waves_sign_user.add(user.uid)
-                elif user.game_id == PGR_GAME_ID and pgr_uid_list:
+                elif user.game_id == PGR_GAME_ID:
                     pgr_sign_user.add(user.uid)
                 is_need = True
 
