@@ -174,7 +174,7 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
     # 检查战双签到状态
     if all_completed and pgr_enabled and pgr_uid_list:
         for pgr_uid in pgr_uid_list:
-            rover_sign = await RoverSign.get_sign_data(main_uid or pgr_uid)
+            rover_sign = await RoverSign.get_sign_data(pgr_uid)
             if not rover_sign or not SignStatus.pgr_game_sign_complete(rover_sign):
                 all_completed = False
                 break
@@ -242,7 +242,7 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
     if pgr_enabled and pgr_uid_list and main_token:
         for pgr_uid in pgr_uid_list:
             pgr_signed = False
-            rover_sign: Optional[RoverSign] = await RoverSign.get_sign_data(main_uid or pgr_uid)
+            rover_sign: Optional[RoverSign] = await RoverSign.get_sign_data(pgr_uid)
             if rover_sign and SignStatus.pgr_game_sign_complete(rover_sign):
                 pgr_signed = "skip"
             else:
