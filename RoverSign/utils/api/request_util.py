@@ -13,7 +13,7 @@ from gsuid_core.logger import logger
 
 from ...utils.util import generate_random_string, get_public_ip
 
-KURO_VERSION = "2.8.0"
+KURO_VERSION = "2.9.0"
 PLATFORM_SOURCE = "ios"
 CONTENT_TYPE = "application/x-www-form-urlencoded; charset=utf-8"
 
