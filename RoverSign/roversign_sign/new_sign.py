@@ -353,6 +353,7 @@ async def rover_auto_sign_task():
     async def process_user(semaphore, user: WavesUser):
         logger.debug(f"[自动签到] 处理 UID {user.uid} 的签到任务")
         async with semaphore:
+            await asyncio.sleep(random.random() * 1.5)
             if user.cookie == "":
                 return
             if user.status:
@@ -438,6 +439,7 @@ async def rover_auto_sign_task():
                     )
 
                 await asyncio.sleep(random.randint(2, 4))
+            logger.info(f"[自动签到] UID {user.uid} 签到任务完成")
 
     if not need_user_list:
         return "暂无需要签到的账号"
