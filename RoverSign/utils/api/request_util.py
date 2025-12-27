@@ -1,3 +1,4 @@
+import random
 from enum import IntEnum
 from typing import Any, Dict, Generic, Optional, TypeVar, Union
 
@@ -16,26 +17,34 @@ from ...utils.util import generate_random_string, get_public_ip
 KURO_VERSION = "2.9.0"
 PLATFORM_SOURCE = "ios"
 CONTENT_TYPE = "application/x-www-form-urlencoded; charset=utf-8"
+IOS_USER_AGENT = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) "
+    "AppleWebKit/605.1.15 (KHTML, like Gecko)  KuroGameBox/2.9.0"
+)
+ANDROID_USER_AGENT = (
+    "Mozilla/5.0 (Linux; Android 16; 25098PN5AC Build/BP2A.250605.031.A3; wv) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/143.0.7499.34 "
+    "Mobile Safari/537.36 Kuro/2.9.0 KuroGameBox/2.9.0"
+)
 
 
 async def get_base_header(devCode: Optional[str] = None):
+    platform_source = random.choice(["ios", "android"])
+    user_agent = IOS_USER_AGENT if platform_source == "ios" else ANDROID_USER_AGENT
     header = {
-        "source": PLATFORM_SOURCE,
+        "source": platform_source,
         "Content-Type": CONTENT_TYPE,
-        "User-Agent": " Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)  KuroGameBox/2.8.0",
-        "version": KURO_VERSION,  # getPostDetail 需要版本号
+        "User-Agent": user_agent,
     }
     if devCode:
         header["devCode"] = devCode
     else:
         ip = await get_public_ip()
-        header["devCode"] = (
-            f"{ip}, Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)  KuroGameBox/2.8.0"
-        )
+        header["devCode"] = f"{ip}, {user_agent}"
     return header
 
 
-async def get_community_header():
+async def get_community_header() -> dict[str, str]:
     devCode = generate_random_string()
     header = await get_base_header(devCode)
     header["source"] = "h5"
