@@ -312,12 +312,13 @@ async def rover_auto_sign_task():
             if RoverSignConfig.get_config("SigninMaster").data:
                 # 如果 SigninMaster 为 True，添加到 user_list 中
                 need_user_list.append(user)
-                bbs_user.add(user.uid)
+                if not is_signed_bbs:
+                    bbs_user.add(user.uid)
                 _token_dict.setdefault(user.cookie, []).append(user.uid)
                 # 根据 game_id 判断加入哪个游戏签到列表
-                if user.game_id == WAVES_GAME_ID:
+                if user.game_id == WAVES_GAME_ID and not is_signed_waves_game:
                     waves_sign_user.add(user.uid)
-                elif user.game_id == PGR_GAME_ID:
+                elif user.game_id == PGR_GAME_ID and not is_signed_pgr_game:
                     pgr_sign_user.add(user.uid)
                 continue
 
