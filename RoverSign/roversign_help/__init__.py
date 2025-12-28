@@ -10,10 +10,10 @@ from .get_help import ICON, get_help
 sv_rover_help = SV("RoverSign帮助")
 
 
-@sv_rover_help.on_fullmatch("帮助")
+@sv_rover_help.on_fullmatch(("帮助", "签到帮助"), block=False)
 async def send_help_img(bot: Bot, ev: Event):
     await bot.send(await get_help(ev.user_pm))
 
 
 PREFIX = get_plugin_available_prefix("RoverSign")
-register_help("RoverSignUID", f"{PREFIX}帮助", Image.open(ICON))
+register_help("RoverSignUID", f"{PREFIX}签到帮助", Image.open(ICON))
