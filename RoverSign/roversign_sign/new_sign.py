@@ -306,6 +306,7 @@ async def rover_auto_sign_task():
                 if SignStatus.bbs_sign_complete(rover_sign, bbs_link_config):
                     is_signed_bbs = True
 
+            _token_dict.setdefault(user.cookie, []).append(user.uid)
             if user.game_id == WAVES_GAME_ID:
                 if is_signed_waves_game and is_signed_bbs:
                     continue
@@ -320,7 +321,6 @@ async def rover_auto_sign_task():
                 need_user_list.append(user)
                 if not is_signed_bbs:
                     bbs_user.add(user.uid)
-                _token_dict.setdefault(user.cookie, []).append(user.uid)
                 # 根据 game_id 判断加入哪个游戏签到列表
                 if user.game_id == WAVES_GAME_ID and not is_signed_waves_game:
                     waves_sign_user.add(user.uid)
