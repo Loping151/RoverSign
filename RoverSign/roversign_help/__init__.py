@@ -7,7 +7,7 @@ from gsuid_core.sv import SV, get_plugin_available_prefix
 
 from .get_help import ICON, get_help
 
-sv_rover_help = SV("RoverSign帮助")
+sv_rover_help = SV("RoverSign帮助", priority=6)
 
 
 @sv_rover_help.on_fullmatch("帮助")
