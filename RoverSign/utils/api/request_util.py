@@ -14,17 +14,17 @@ from gsuid_core.logger import logger
 
 from ...utils.util import generate_random_string, get_public_ip
 
-KURO_VERSION = "2.9.0"
+KURO_VERSION = "2.10.0"
 PLATFORM_SOURCE = "ios"
 CONTENT_TYPE = "application/x-www-form-urlencoded; charset=utf-8"
 IOS_USER_AGENT = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) "
-    "AppleWebKit/605.1.15 (KHTML, like Gecko)  KuroGameBox/2.9.0"
+    "AppleWebKit/605.1.15 (KHTML, like Gecko)  KuroGameBox/2.10.0"
 )
 ANDROID_USER_AGENT = (
     "Mozilla/5.0 (Linux; Android 16; 25098PN5AC Build/BP2A.250605.031.A3; wv) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/143.0.7499.34 "
-    "Mobile Safari/537.36 Kuro/2.9.0 KuroGameBox/2.9.0"
+    "Mobile Safari/537.36 Kuro/2.10.0 KuroGameBox/2.10.0"
 )
 
 
