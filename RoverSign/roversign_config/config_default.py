@@ -117,4 +117,15 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "签到已跳过时显示的文案",
         "🚫 请勿重复签到",
     ),
+    "ActiveUserDays": GsIntConfig(
+        "活跃账号认定天数",
+        "在此天数内有使用记录的账号被认定为活跃账号",
+        42,
+        10000,
+    ),
+    "SignActiveUserOnly": GsBoolConfig(
+        "仅签到活跃账号",
+        "开启后仅对活跃账号进行签到（需配合活跃账号认定天数使用）",
+        False,
+    ),
 }

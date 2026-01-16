@@ -157,6 +157,26 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
     if not waves_uid_list and not pgr_uid_list:
         return WAVES_CODE_101_MSG
 
+    # 更新鸣潮账号的最后使用时间
+    if waves_uid_list:
+        for waves_uid in waves_uid_list:
+            await WavesUser.update_last_used_time(
+                waves_uid,
+                ev.user_id,
+                ev.bot_id,
+                game_id=WAVES_GAME_ID,
+            )
+
+    # 更新战双账号的最后使用时间
+    if pgr_uid_list:
+        for pgr_uid in pgr_uid_list:
+            await WavesUser.update_last_used_time(
+                pgr_uid,
+                ev.user_id,
+                ev.bot_id,
+                game_id=PGR_GAME_ID,
+            )
+
     bbs_link_config = get_bbs_link_config()
     main_uid = waves_uid_list[0] if waves_uid_list else None
 
@@ -288,8 +308,22 @@ async def rover_auto_sign_task():
         or RoverSignConfig.get_config("SchedSignin").data
         or RoverSignConfig.get_config("UserPGRSignin").data
     ):
-        _user_list: List[WavesUser] = await WavesUser.get_waves_all_user()
-        for user in _user_list:
+        # 获取所有用户（SigninMaster 和定时任务都需要）
+        _all_user_list: List[WavesUser] = await WavesUser.get_waves_all_user()
+
+        # 获取活跃用户（仅用于定时任务）
+        sign_active_only = RoverSignConfig.get_config("SignActiveUserOnly").data
+        if sign_active_only:
+            active_days = RoverSignConfig.get_config("ActiveUserDays").data
+            _active_user_set = set(u.uid for u in await WavesUser.get_active_waves_user(active_days))
+            logger.info(f"[RoverSign] 定时任务仅签到活跃账号，活跃天数：{active_days}，活跃用户数：{len(_active_user_set)}")
+        else:
+            _active_user_set = None
+            logger.info(f"[RoverSign] 定时任务签到所有账号")
+
+        logger.info(f"[RoverSign] 总用户数：{len(_all_user_list)}")
+
+        for user in _all_user_list:
             _uid = user.user_id
             if not _uid:
                 continue
@@ -317,7 +351,7 @@ async def rover_auto_sign_task():
                 continue
 
             if RoverSignConfig.get_config("SigninMaster").data:
-                # 如果 SigninMaster 为 True，添加到 user_list 中
+                # 如果 SigninMaster 为 True，不判断活跃，直接添加到 user_list 中
                 need_user_list.append(user)
                 if not is_signed_bbs:
                     bbs_user.add(user.uid)
@@ -326,6 +360,11 @@ async def rover_auto_sign_task():
                     waves_sign_user.add(user.uid)
                 elif user.game_id == PGR_GAME_ID and not is_signed_pgr_game:
                     pgr_sign_user.add(user.uid)
+                continue
+
+            # 定时任务：判断是否开启了活跃过滤
+            if _active_user_set is not None and user.uid not in _active_user_set:
+                # 开启了活跃过滤，且该用户不活跃，跳过
                 continue
 
             is_need = False

@@ -23,6 +23,8 @@ exec_list.extend(
         'ALTER TABLE RoverSign ADD COLUMN pgr_uid TEXT DEFAULT ""',
         'ALTER TABLE RoverSign ADD COLUMN pgr_game_sign INTEGER DEFAULT 0',
         'ALTER TABLE WavesUser ADD COLUMN is_login INTEGER DEFAULT 0 NOT NULL',
+        'ALTER TABLE WavesUser ADD COLUMN created_time INTEGER',
+        'ALTER TABLE WavesUser ADD COLUMN last_used_time INTEGER',
     ]
 )
 
@@ -62,6 +64,8 @@ class WavesUser(User, table=True):
     did: str = Field(default="", title="did")
     game_id: int = Field(default=3, title="GameID")
     is_login: bool = Field(default=False, title="是否waves登录")
+    created_time: Optional[int] = Field(default=None, title="创建时间")
+    last_used_time: Optional[int] = Field(default=None, title="最后使用时间")
 
     @classmethod
     @with_lock
@@ -172,6 +176,91 @@ class WavesUser(User, table=True):
         result = await session.execute(sql)
         data = result.scalars().all()
         return data[0] if data else None
+
+    @classmethod
+    @with_session
+    async def get_active_waves_user(
+        cls: Type[T_WavesUser],
+        session: AsyncSession,
+        active_days: int,
+    ) -> List[T_WavesUser]:
+        """
+        获取活跃用户（在指定天数内有使用记录）
+
+        Args:
+            active_days: 活跃认定天数
+
+        Returns:
+            活跃用户列表
+        """
+        import time
+
+        current_time = int(time.time())
+        threshold_time = current_time - (active_days * 24 * 60 * 60)
+
+        sql = (
+            select(cls)
+            .where(cls.cookie != null())
+            .where(cls.cookie != "")
+            .where(cls.user_id != null())
+            .where(cls.user_id != "")
+            .where(cls.last_used_time != null())
+            .where(cls.last_used_time >= threshold_time)
+        )
+        result = await session.execute(sql)
+        data = result.scalars().all()
+        return list(data)
+
+    @classmethod
+    @with_lock
+    @with_session
+    async def update_last_used_time(
+        cls,
+        session: AsyncSession,
+        uid: str,
+        user_id: str,
+        bot_id: str,
+        game_id: Optional[int] = None,
+    ):
+        """更新最后使用时间，如果创建时间为空则同时设置创建时间
+
+        会更新所有具有相同 uid 和 cookie 的记录
+        """
+        import time
+
+        current_time = int(time.time())
+
+        # 先查询当前用户获取 cookie
+        filters = [
+            cls.user_id == user_id,
+            cls.uid == uid,
+            cls.bot_id == bot_id,
+        ]
+        if game_id is not None:
+            filters.append(cls.game_id == game_id)
+
+        result = await session.execute(select(cls).where(*filters))
+        user = result.scalars().first()
+
+        if user and user.cookie:
+            # 更新所有具有相同 uid 和 cookie 的记录
+            # 先查询所有需要更新的记录
+            all_users_result = await session.execute(
+                select(cls).where(
+                    cls.uid == uid,
+                    cls.cookie == user.cookie,
+                )
+            )
+            all_users = all_users_result.scalars().all()
+
+            # 批量更新
+            for u in all_users:
+                u.last_used_time = current_time
+                if u.created_time is None:
+                    u.created_time = current_time
+
+            return True
+        return False
 
 
 class RoverSignData(BaseModel):
