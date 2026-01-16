@@ -243,11 +243,10 @@ class WavesUser(User, table=True):
         user = result.scalars().first()
 
         if user and user.cookie:
-            # 更新所有具有相同 uid 和 cookie 的记录
-            # 先查询所有需要更新的记录
+            # 更新所有具有相同 user_id 和 cookie 的记录
             all_users_result = await session.execute(
                 select(cls).where(
-                    cls.uid == uid,
+                    cls.user_id == user_id,
                     cls.cookie == user.cookie,
                 )
             )
