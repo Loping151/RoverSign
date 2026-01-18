@@ -19,7 +19,6 @@ from gsuid_core.utils.database.startup import exec_list
 from gsuid_core.utils.database.models import Subscribe
 from gsuid_core.webconsole.mount_app import PageSchema, GsAdminModel, site
 
-# 从鸣潮插件导入 WavesSubscribe（共享表）
 from .....XutheringWavesUID.XutheringWavesUID.utils.database.models import (
     WavesSubscribe,
 )
