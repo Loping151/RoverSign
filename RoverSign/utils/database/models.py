@@ -19,6 +19,12 @@ from gsuid_core.utils.database.startup import exec_list
 from gsuid_core.utils.database.models import Subscribe
 from gsuid_core.webconsole.mount_app import PageSchema, GsAdminModel, site
 
+# 从鸣潮插件导入 WavesSubscribe 和 WavesSubscribeAdmin，使用同一个表
+from .....XutheringWavesUID.XutheringWavesUID.utils.database.models import (
+    WavesSubscribe,
+    WavesSubscribeAdmin,
+)
+
 from ..util import get_today_date
 
 exec_list.extend(
@@ -412,122 +418,10 @@ class RoverSign(BaseIDModel, table=True):
         await session.execute(sql)
 
 
-T_RoverSubscribe = TypeVar("T_RoverSubscribe", bound="RoverSubscribe")
+# 使用鸣潮插件的 WavesSubscribe 和 WavesSubscribeAdmin
+# 创建别名以保持代码兼容性
+RoverSubscribe = WavesSubscribe
+RoverSubscribeAdmin = WavesSubscribeAdmin
 
-
-class RoverSubscribe(BaseModel, table=True):
-    """群组Bot记录表
-
-    自动记录每个群最后使用的bot_self_id
-    当检测到bot变化时，自动更新该群所有订阅的bot_id
-    """
-    __tablename__ = "RoverSubscribe"
-    __table_args__: Dict[str, Any] = {"extend_existing": True}
-
-    group_id: str = Field(default="", title="群组ID", unique=True)
-    bot_self_id: str = Field(default="", title="当前Bot Self ID")
-    updated_at: Optional[int] = Field(default=None, title="最后更新时间")
-
-    @classmethod
-    @with_session
-    async def check_and_update_bot(
-        cls: Type[T_RoverSubscribe],
-        session: AsyncSession,
-        group_id: str,
-        bot_self_id: str,
-    ) -> bool:
-        """检查并更新群组的bot_self_id
-
-        如果bot_self_id发生变化，自动更新该群所有订阅的bot_id
-
-        Args:
-            group_id: 群组ID
-            bot_self_id: 新的bot_self_id
-
-        Returns:
-            bool: 是否发生了bot变更
-        """
-        import time
-        from gsuid_core.logger import logger
-
-        current_time = int(time.time())
-
-        # 查询现有记录
-        sql = select(cls).where(cls.group_id == group_id)
-        result = await session.execute(sql)
-        existing = result.scalars().first()
-
-        if existing:
-            # 检查bot是否变化
-            if existing.bot_self_id != bot_self_id:
-                old_bot_self_id = existing.bot_self_id
-                logger.info(
-                    f"[RoverSign订阅] 检测到群 {group_id} 的bot变更: {old_bot_self_id} -> {bot_self_id}"
-                )
-
-                # 更新所有订阅的bot_self_id
-                update_sql = (
-                    update(Subscribe)
-                    .where(
-                        and_(
-                            col(Subscribe.group_id) == group_id,
-                            col(Subscribe.bot_self_id) == old_bot_self_id,
-                        )
-                    )
-                    .values(bot_self_id=bot_self_id)
-                )
-                update_result = await session.execute(update_sql)
-
-                if update_result.rowcount > 0:
-                    logger.info(
-                        f"[RoverSign订阅] 已自动更新 {update_result.rowcount} 条订阅记录的bot_self_id"
-                    )
-
-                # 更新记录
-                existing.bot_self_id = bot_self_id
-                existing.updated_at = current_time
-                session.add(existing)
-
-                return True
-            else:
-                # bot未变化，只更新时间
-                existing.updated_at = current_time
-                session.add(existing)
-                return False
-        else:
-            # 首次记录
-            new_record = cls(
-                bot_id="onebot",
-                user_id="",
-                group_id=group_id,
-                bot_self_id=bot_self_id,
-                updated_at=current_time,
-            )
-            session.add(new_record)
-            logger.debug(f"[RoverSign订阅] 首次记录群 {group_id} 的bot: {bot_self_id}")
-            return False
-
-    @classmethod
-    @with_session
-    async def get_group_bot(
-        cls: Type[T_RoverSubscribe],
-        session: AsyncSession,
-        group_id: str,
-    ) -> Optional[str]:
-        """获取群组当前的bot_self_id"""
-        sql = select(cls).where(cls.group_id == group_id)
-        result = await session.execute(sql)
-        record = result.scalars().first()
-        return record.bot_self_id if record else None
-
-
-@site.register_admin
-class RoverSubscribeAdmin(GsAdminModel):
-    pk_name = "group_id"
-    page_schema = PageSchema(
-        label="RoverSign Bot-群组绑定",
-        icon="fa fa-link",
-    )  # type: ignore
-
-    # 配置管理模型
-    model = RoverSubscribe
+# TypeVar 别名
+T_RoverSubscribe = TypeVar("T_RoverSubscribe", bound=WavesSubscribe)
