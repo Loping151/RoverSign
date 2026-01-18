@@ -9,6 +9,7 @@ try:
     from gsuid_core.plugins.XutheringWavesUID.XutheringWavesUID.utils.bot_send_hook import (
         install_bot_hooks,
         register_target_send_hook,
+        register_send_hook,
     )
     from .utils.database.models import RoverSubscribe
 
@@ -25,6 +26,7 @@ try:
     # 安装 hooks 并注册
     install_bot_hooks()
     register_target_send_hook(rover_bot_check_hook)
+    register_send_hook(rover_bot_check_hook)
 
     logger.info("[RoverSign] Bot 消息发送 hook 已注册")
 except ImportError as e:
