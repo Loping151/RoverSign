@@ -19,7 +19,6 @@ from gsuid_core.utils.database.startup import exec_list
 from gsuid_core.utils.database.models import Subscribe
 from gsuid_core.webconsole.mount_app import PageSchema, GsAdminModel, site
 
-# 从鸣潮插件导入 WavesSubscribe 和 WavesSubscribeAdmin，使用同一个表
 from .....XutheringWavesUID.XutheringWavesUID.utils.database.models import (
     WavesSubscribe,
     WavesSubscribeAdmin,
@@ -418,10 +417,18 @@ class RoverSign(BaseIDModel, table=True):
         await session.execute(sql)
 
 
-# 使用鸣潮插件的 WavesSubscribe 和 WavesSubscribeAdmin
-# 创建别名以保持代码兼容性
 RoverSubscribe = WavesSubscribe
-RoverSubscribeAdmin = WavesSubscribeAdmin
 
-# TypeVar 别名
 T_RoverSubscribe = TypeVar("T_RoverSubscribe", bound=WavesSubscribe)
+
+
+@site.register_admin
+class RoverSubscribeAdmin(GsAdminModel):
+    """RoverSign 的 Bot-群组绑定管理（与鸣潮共享 WavesSubscribe 表）"""
+    pk_name = "group_id"
+    page_schema = PageSchema(
+        label="RoverSign Bot-群组绑定",
+        icon="fa fa-link",
+    )  # type: ignore
+
+    model = WavesSubscribe
