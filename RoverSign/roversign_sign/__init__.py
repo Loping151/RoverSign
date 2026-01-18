@@ -142,6 +142,10 @@ async def rover_sign_result(bot: Bot, ev: Event):
     else:
         option = "开启"
 
+    if ev.group_id and option == "开启":
+        from ..utils.database.models import RoverSubscribe
+        await RoverSubscribe.check_and_update_bot(ev.group_id, ev.bot_id)
+
     if option == "关闭":
         await gs_subscribe.delete_subscribe("single", BoardcastTypeEnum.SIGN_RESULT, ev)
     else:
