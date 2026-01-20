@@ -1,37 +1,36 @@
 import asyncio
 from functools import wraps
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, Optional
 
-from pydantic import BaseModel as PydanticBaseModel
-from sqlalchemy import delete, null, update
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import and_
 from sqlmodel import Field, col, select
-
+from sqlalchemy import null, delete, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel as PydanticBaseModel
+from gsuid_core.utils.database.models import Subscribe
+from gsuid_core.utils.database.startup import exec_list
+from gsuid_core.webconsole.mount_app import PageSchema, GsAdminModel, site
 from gsuid_core.utils.database.base_models import (
-    BaseIDModel,
-    BaseModel,
     Bind,
     User,
+    BaseModel,
+    BaseIDModel,
     with_session,
 )
-from gsuid_core.utils.database.startup import exec_list
-from gsuid_core.utils.database.models import Subscribe
-from gsuid_core.webconsole.mount_app import PageSchema, GsAdminModel, site
 
+from ..util import get_today_date
+from .rover_user_activity import RoverUserActivity
 from .....XutheringWavesUID.XutheringWavesUID.utils.database.waves_subscribe import (
     WavesSubscribe,
 )
 
-from ..util import get_today_date
-
 exec_list.extend(
     [
         'ALTER TABLE RoverSign ADD COLUMN pgr_uid TEXT DEFAULT ""',
-        'ALTER TABLE RoverSign ADD COLUMN pgr_game_sign INTEGER DEFAULT 0',
-        'ALTER TABLE WavesUser ADD COLUMN is_login INTEGER DEFAULT 0 NOT NULL',
-        'ALTER TABLE WavesUser ADD COLUMN created_time INTEGER',
-        'ALTER TABLE WavesUser ADD COLUMN last_used_time INTEGER',
+        "ALTER TABLE RoverSign ADD COLUMN pgr_game_sign INTEGER DEFAULT 0",
+        "ALTER TABLE WavesUser ADD COLUMN is_login INTEGER DEFAULT 0 NOT NULL",
+        "ALTER TABLE WavesUser ADD COLUMN created_time INTEGER",
+        "ALTER TABLE WavesUser ADD COLUMN last_used_time INTEGER",
     ]
 )
 
@@ -424,10 +423,22 @@ T_RoverSubscribe = TypeVar("T_RoverSubscribe", bound=WavesSubscribe)
 @site.register_admin
 class RoverSubscribeAdmin(GsAdminModel):
     """RoverSign 的 Bot-群组绑定管理（与鸣潮共享 WavesSubscribe 表）"""
+
     pk_name = "group_id"
     page_schema = PageSchema(
-        label="RoverSign Bot-群组绑定",
+        label="RoverSign 发送-群组绑定",
         icon="fa fa-link",
     )  # type: ignore
 
     model = WavesSubscribe
+
+
+@site.register_admin
+class RoverUserActivityAdmin(GsAdminModel):
+    pk_name = "id"
+    page_schema = PageSchema(
+        label="RoverSign 用户活跃度",
+        icon="fa fa-clock-o",
+    )  # type: ignore
+
+    model = RoverUserActivity
