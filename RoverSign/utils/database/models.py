@@ -2,27 +2,22 @@ import asyncio
 from functools import wraps
 from typing import Any, Dict, List, Type, TypeVar, Optional
 
-from sqlalchemy.sql import and_
 from sqlmodel import Field, col, select
 from sqlalchemy import null, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel as PydanticBaseModel
-from gsuid_core.utils.database.models import Subscribe
 from gsuid_core.utils.database.startup import exec_list
 from gsuid_core.webconsole.mount_app import PageSchema, GsAdminModel, site
 from gsuid_core.utils.database.base_models import (
     Bind,
     User,
-    BaseModel,
     BaseIDModel,
     with_session,
 )
 
 from ..util import get_today_date
 from .rover_user_activity import RoverUserActivity
-from .....XutheringWavesUID.XutheringWavesUID.utils.database.waves_subscribe import (
-    WavesSubscribe,
-)
+from .rover_subscribe import RoverSubscribe
 
 exec_list.extend(
     [
@@ -34,7 +29,6 @@ exec_list.extend(
     ]
 )
 
-# 创建一个全局的数据库写锁
 _DB_WRITE_LOCK = asyncio.Lock()
 
 
@@ -415,14 +409,12 @@ class RoverSign(BaseIDModel, table=True):
         await session.execute(sql)
 
 
-RoverSubscribe = WavesSubscribe
-
-T_RoverSubscribe = TypeVar("T_RoverSubscribe", bound=WavesSubscribe)
+T_RoverSubscribe = TypeVar("T_RoverSubscribe", bound=RoverSubscribe)
 
 
 @site.register_admin
 class RoverSubscribeAdmin(GsAdminModel):
-    """RoverSign 的 Bot-群组绑定管理（与鸣潮共享 WavesSubscribe 表）"""
+    """RoverSign 的 Bot-群组绑定管理"""
 
     pk_name = "group_id"
     page_schema = PageSchema(
@@ -430,7 +422,7 @@ class RoverSubscribeAdmin(GsAdminModel):
         icon="fa fa-link",
     )  # type: ignore
 
-    model = WavesSubscribe
+    model = RoverSubscribe
 
 
 @site.register_admin
