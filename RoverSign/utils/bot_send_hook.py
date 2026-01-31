@@ -134,16 +134,24 @@ def install_bot_hooks():
         # 调用所有插件的用户活跃度 hooks
         await _call_all_user_activity_hooks(user_id, bot_id, bot_self_id)
 
+        # 调用所有插件的 target_send hooks (群组消息时更新群组绑定)
+        if hasattr(self, "ev"):
+            target_type = getattr(self.ev, "user_type", "")
+            group_id = getattr(self.ev, "group_id", None)
+            if target_type and group_id:
+                await _call_all_target_send_hooks(target_type, group_id, bot_id, bot_self_id)
+
         # 调用原始方法
         return await original_send(self, *args, **kwargs)
 
     # 包装 target_send 方法
     async def hooked_target_send(self, *args, **kwargs):
-        if len(args) >= 5:
+        # 从 Bot 实例的 ev 属性获取正确的 bot 信息
+        if hasattr(self, "ev") and len(args) >= 3:
             target_type = args[1]
             target_id = args[2]
-            bot_id = args[3]
-            bot_self_id = args[4]
+            bot_id = getattr(self.ev, "real_bot_id", getattr(self, "bot_id", ""))
+            bot_self_id = getattr(self.ev, "bot_self_id", getattr(self, "bot_self_id", ""))
 
             # 调用所有插件的 target_send hooks
             await _call_all_target_send_hooks(target_type, target_id, bot_id, bot_self_id)
