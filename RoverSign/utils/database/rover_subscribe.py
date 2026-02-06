@@ -9,6 +9,7 @@ from gsuid_core.utils.database.base_models import BaseModel, with_session
 from gsuid_core.utils.database.models import Subscribe
 
 T_RoverSubscribe = TypeVar("T_RoverSubscribe", bound="RoverSubscribe")
+T_WavesSubscribeReader = TypeVar("T_WavesSubscribeReader", bound="WavesSubscribeReader")
 
 
 class RoverSubscribe(BaseModel, table=True):
@@ -118,6 +119,33 @@ class RoverSubscribe(BaseModel, table=True):
     @with_session
     async def get_group_bot(
         cls: Type[T_RoverSubscribe],
+        session: AsyncSession,
+        group_id: str,
+    ) -> Optional[str]:
+        """获取群组当前的bot_self_id"""
+        sql = select(cls).where(cls.group_id == group_id)
+        result = await session.execute(sql)
+        record = result.scalars().first()
+        return record.bot_self_id if record else None
+
+
+class WavesSubscribeReader(BaseModel, table=True):
+    """读取 XutheringWavesUID 的 WavesSubscribe 表（只读）
+
+    与 XutheringWavesUID 共用同一张表，避免直接依赖
+    """
+
+    __tablename__ = "WavesSubscribe"
+    __table_args__: Dict[str, Any] = {"extend_existing": True}
+
+    group_id: str = Field(default="", title="群组ID", unique=True)
+    bot_self_id: str = Field(default="", title="BotSelfID")
+    updated_at: Optional[int] = Field(default=None, title="最后更新时间")
+
+    @classmethod
+    @with_session
+    async def get_group_bot(
+        cls: Type[T_WavesSubscribeReader],
         session: AsyncSession,
         group_id: str,
     ) -> Optional[str]:

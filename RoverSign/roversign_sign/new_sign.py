@@ -17,6 +17,7 @@ from ..utils.database.models import (
     WavesBind,
     WavesUser,
 )
+from ..utils.database.rover_subscribe import WavesSubscribeReader
 from ..utils.database.states import SignStatus
 from ..utils.errors import WAVES_CODE_101_MSG
 from ..utils.api.api import WAVES_GAME_ID, PGR_GAME_ID
@@ -600,8 +601,15 @@ async def to_board_cast_msg(
         if group_msgs[gid]["push_message"]:
             messages.append(MessageSegment.text("\n"))
             messages.extend(group_msgs[gid]["push_message"])
+
+        # 从 WavesSubscribe 表获取群组绑定的 bot_self_id，如果没有则 fallback 到第一个 user 的 bot_id
+        bot_id = await WavesSubscribeReader.get_group_bot(gid)
+        if not bot_id:
+            bot_id = group_msgs[gid]["bot_id"]
+            logger.debug(f"[RoverSign] 群 {gid} 未在 WavesSubscribe 中找到绑定，使用 fallback bot_id: {bot_id}")
+
         group_msg_dict[gid] = {
-            "bot_id": group_msgs[gid]["bot_id"],
+            "bot_id": bot_id,
             "messages": messages,
         }
 
