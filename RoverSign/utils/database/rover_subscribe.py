@@ -8,6 +8,8 @@ from sqlalchemy.sql import and_
 from gsuid_core.utils.database.base_models import BaseModel, with_session
 from gsuid_core.utils.database.models import Subscribe
 
+from ._lock import with_lock
+
 T_RoverSubscribe = TypeVar("T_RoverSubscribe", bound="RoverSubscribe")
 T_WavesSubscribeReader = TypeVar("T_WavesSubscribeReader", bound="WavesSubscribeReader")
 
@@ -27,6 +29,7 @@ class RoverSubscribe(BaseModel, table=True):
     updated_at: Optional[int] = Field(default=None, title="最后更新时间")
 
     @classmethod
+    @with_lock
     @with_session
     async def check_and_update_bot(
         cls: Type[T_RoverSubscribe],

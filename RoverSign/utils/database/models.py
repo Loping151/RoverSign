@@ -1,5 +1,3 @@
-import asyncio
-from functools import wraps
 from typing import Any, Dict, List, Type, TypeVar, Optional
 
 from sqlmodel import Field, col, select
@@ -16,6 +14,7 @@ from gsuid_core.utils.database.base_models import (
 )
 
 from ..util import get_today_date
+from ._lock import with_lock
 from .rover_user_activity import RoverUserActivity
 from .rover_subscribe import RoverSubscribe
 
@@ -28,17 +27,6 @@ exec_list.extend(
         "ALTER TABLE WavesUser ADD COLUMN last_used_time INTEGER",
     ]
 )
-
-_DB_WRITE_LOCK = asyncio.Lock()
-
-
-def with_lock(func):
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        async with _DB_WRITE_LOCK:
-            return await func(*args, **kwargs)
-
-    return wrapper
 
 
 T_WavesBind = TypeVar("T_WavesBind", bound="WavesBind")

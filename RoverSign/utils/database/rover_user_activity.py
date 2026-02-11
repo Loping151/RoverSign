@@ -7,6 +7,8 @@ from sqlalchemy.sql import and_
 
 from gsuid_core.utils.database.base_models import BaseBotIDModel, with_session
 
+from ._lock import with_lock
+
 T_RoverUserActivity = TypeVar("T_RoverUserActivity", bound="RoverUserActivity")
 
 
@@ -25,6 +27,7 @@ class RoverUserActivity(BaseBotIDModel, table=True):
     last_active_time: Optional[int] = Field(default=None, title="最后活跃时间")
 
     @classmethod
+    @with_lock
     @with_session
     async def update_user_activity(
         cls: Type[T_RoverUserActivity],
