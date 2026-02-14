@@ -8,6 +8,7 @@ from gsuid_core.utils.boardcast.models import BoardCastMsgDict
 from gsuid_core.utils.database.models import Subscribe
 
 from ..utils.constant import BoardcastType
+from ..utils.database.rover_subscribe import RoverSubscribe
 
 
 async def send_board_cast_msg(
@@ -19,20 +20,16 @@ async def send_board_cast_msg(
 
     subs = await gs_subscribe.get_subscribe(board_cast_type)
 
-    def get_bot_self_id(qid, bot_id, target_type, group_id):
+    def get_private_bot_self_id(qid, bot_id):
+        """从 Subscribe 表获取私聊订阅的 bot_self_id"""
         if not subs:
             return ""
         for sub in subs:
             sub: Subscribe
-            if sub.user_type != target_type:
+            if sub.user_type != "direct":
                 continue
-            if target_type == "direct":
-                if sub.user_id == qid and sub.bot_id == bot_id:
-                    return sub.bot_self_id
-
-            if target_type == "group":
-                if sub.group_id == group_id and sub.bot_id == bot_id:
-                    return sub.bot_self_id
+            if sub.user_id == qid and sub.bot_id == bot_id:
+                return sub.bot_self_id
         return ""
 
     # 执行私聊推送
@@ -40,8 +37,8 @@ async def send_board_cast_msg(
         try:
             for bot_id in gss.active_bot:
                 for single in private_msg_list[qid]:
-                    bot_self_id = get_bot_self_id(
-                        qid, single["bot_id"], "direct", ""
+                    bot_self_id = get_private_bot_self_id(
+                        qid, single["bot_id"]
                     )
                     await gss.active_bot[bot_id].target_send(
                         single["messages"],
@@ -59,28 +56,37 @@ async def send_board_cast_msg(
     # 执行群聊推送
     for gid in group_msg_list:
         try:
-            for bot_id in gss.active_bot:
+            # 从 RoverSubscribe 获取该群绑定的 bot_self_id
+            bot_self_id = await RoverSubscribe.get_group_bot(gid)
+            if not bot_self_id:
+                # fallback: 从消息中获取
+                if isinstance(group_msg_list[gid], list):
+                    bot_self_id = group_msg_list[gid][0].get("bot_id", "")
+                else:
+                    bot_self_id = group_msg_list[gid].get("bot_id", "")
+
+            if not bot_self_id:
+                logger.warning(f"[推送] 群 {gid} 无法获取 bot_self_id，跳过")
+                continue
+
+            for ws_bot_id in gss.active_bot:
                 if isinstance(group_msg_list[gid], list):
                     for group in group_msg_list[gid]:
-                        bot_self_id = get_bot_self_id("", group["bot_id"], "group", gid)  # type: ignore
-                        await gss.active_bot[bot_id].target_send(
-                            group["messages"],  # type: ignore
+                        await gss.active_bot[ws_bot_id].target_send(
+                            group["messages"],
                             "group",
                             gid,
-                            group["bot_id"],  # type: ignore
+                            group.get("bot_id", "onebot"),
                             bot_self_id,
                             "",
                         )
                         await asyncio.sleep(0.5 + random.randint(1, 3))
                 else:
-                    bot_self_id = get_bot_self_id(
-                        "", group_msg_list[gid]["bot_id"], "group", gid
-                    )
-                    await gss.active_bot[bot_id].target_send(
+                    await gss.active_bot[ws_bot_id].target_send(
                         group_msg_list[gid]["messages"],
                         "group",
                         gid,
-                        group_msg_list[gid]["bot_id"],
+                        group_msg_list[gid].get("bot_id", "onebot"),
                         bot_self_id,
                         "",
                     )

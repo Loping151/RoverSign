@@ -602,14 +602,17 @@ async def to_board_cast_msg(
             messages.append(MessageSegment.text("\n"))
             messages.extend(group_msgs[gid]["push_message"])
 
-        # 从 WavesSubscribe 表获取群组绑定的 bot_self_id，如果没有则 fallback 到第一个 user 的 bot_id
-        bot_id = await WavesSubscribeReader.get_group_bot(gid)
-        if not bot_id:
-            bot_id = group_msgs[gid]["bot_id"]
-            logger.debug(f"[RoverSign] 群 {gid} 未在 WavesSubscribe 中找到绑定，使用 fallback bot_id: {bot_id}")
+        # 优先 RoverSubscribe，然后 WavesSubscribeReader，最后 fallback
+        from ..utils.database.rover_subscribe import RoverSubscribe
+        bot_self_id = await RoverSubscribe.get_group_bot(gid)
+        if not bot_self_id:
+            bot_self_id = await WavesSubscribeReader.get_group_bot(gid)
+        if not bot_self_id:
+            bot_self_id = group_msgs[gid]["bot_id"]
+            logger.debug(f"[RoverSign] 群 {gid} 未找到绑定，使用 fallback: {bot_self_id}")
 
         group_msg_dict[gid] = {
-            "bot_id": bot_id,
+            "bot_id": bot_self_id,
             "messages": messages,
         }
 

@@ -44,7 +44,17 @@ async def rover_auto_sign():
         subscribes = await gs_subscribe.get_subscribe(BoardcastTypeEnum.SIGN_RESULT)
         if subscribes:
             logger.info(f"[RoverSign]推送主人签到结果: {msg}")
+            from ..utils.database.rover_subscribe import RoverSubscribe
             for sub in subscribes:
+                # 对 group 订阅，用 RoverSubscribe 获取最新 bot_self_id
+                if sub.user_type == "group" and sub.group_id:
+                    latest_bot = await RoverSubscribe.get_group_bot(sub.group_id)
+                    if latest_bot and latest_bot != sub.bot_self_id:
+                        logger.info(
+                            f"[RoverSign] 更新订阅 bot_self_id: "
+                            f"{sub.bot_self_id} -> {latest_bot}"
+                        )
+                        sub.bot_self_id = latest_bot
                 await sub.send(msg)
     finally:
         # 签到完成，清除状态文件
@@ -143,8 +153,8 @@ async def rover_sign_result(bot: Bot, ev: Event):
         option = "开启"
 
     if ev.group_id and option == "开启":
-        from ..utils.database.models import RoverSubscribe
-        await RoverSubscribe.check_and_update_bot(ev.group_id, ev.bot_id)
+        from ..utils.database.rover_subscribe import RoverSubscribe
+        await RoverSubscribe.check_and_update_bot(ev.group_id, ev.bot_self_id)
 
     if option == "关闭":
         await gs_subscribe.delete_subscribe("single", BoardcastTypeEnum.SIGN_RESULT, ev)
