@@ -36,19 +36,31 @@ try:
             except Exception as e:
                 logger.warning(f"[RS] 批量活跃度写入失败: {e}")
 
+    _shutdown_event = asyncio.Event()
+
     async def _activity_flush_loop():
-        while True:
-            await asyncio.sleep(_FLUSH_INTERVAL)
+        while not _shutdown_event.is_set():
+            try:
+                await asyncio.wait_for(_shutdown_event.wait(), timeout=_FLUSH_INTERVAL)
+                break  # shutdown signaled
+            except asyncio.TimeoutError:
+                pass
             try:
                 await _flush_activity_buffer()
             except Exception as e:
                 logger.warning(f"[RS] 活跃度刷写循环异常: {e}")
 
-    asyncio.get_event_loop().create_task(_activity_flush_loop())
+    _flush_task = asyncio.get_event_loop().create_task(_activity_flush_loop())
 
     @on_core_shutdown
     async def _flush_on_shutdown():
-        logger.info("[RoverSign] 退出前刷写活跃度缓冲区...")
+        logger.info("[RoverSign] 退出前停止活跃度刷写循环...")
+        _shutdown_event.set()
+        try:
+            await asyncio.wait_for(_flush_task, timeout=5)
+        except asyncio.TimeoutError:
+            _flush_task.cancel()
+        logger.info("[RoverSign] 刷写活跃度缓冲区...")
         await _flush_activity_buffer()
         logger.info("[RoverSign] 活跃度缓冲区刷写完成")
 
