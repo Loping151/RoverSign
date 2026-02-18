@@ -1,23 +1,16 @@
-import asyncio
 from functools import wraps
-
-from gsuid_core.logger import logger
-
-_DB_WRITE_LOCK = asyncio.Lock()
-_DB_LOCK_TIMEOUT = 30  # 数据库锁超时（秒）
 
 
 def with_lock(func):
+    """保留装饰器接口兼容性，不再加锁。
+
+    数据库写入的并发安全由 with_session（独立 session + 事务）保障，
+    不同用户操作不同行无竞争，同一用户的签到流程本身是串行的。
+    原全局锁在高并发时超时会导致写入被静默跳过，反而丢数据。
+    """
+
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        try:
-            await asyncio.wait_for(_DB_WRITE_LOCK.acquire(), timeout=_DB_LOCK_TIMEOUT)
-        except asyncio.TimeoutError:
-            logger.warning(f"[RS DB] 获取数据库写锁超时（{_DB_LOCK_TIMEOUT}s），跳过: {func.__name__}")
-            return None
-        try:
-            return await func(*args, **kwargs)
-        finally:
-            _DB_WRITE_LOCK.release()
+        return await func(*args, **kwargs)
 
     return wrapper
