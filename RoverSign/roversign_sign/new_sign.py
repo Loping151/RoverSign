@@ -503,16 +503,8 @@ async def rover_auto_sign_task():
 
     max_concurrent: int = RoverSignConfig.get_config("SigninConcurrentNum").data
     semaphore = asyncio.Semaphore(max_concurrent)
-    _TOTAL_TIMEOUT = 1800  # 整体签到超时 30 分钟
     tasks = [process_user(semaphore, user) for user in need_user_list]
-    try:
-        results = await asyncio.wait_for(
-            asyncio.gather(*tasks, return_exceptions=True),
-            timeout=_TOTAL_TIMEOUT,
-        )
-    except asyncio.TimeoutError:
-        logger.error(f"[自动签到] 整体签到超时（{_TOTAL_TIMEOUT}s），部分任务可能未完成")
-        results = []
+    results = await asyncio.gather(*tasks, return_exceptions=True)
     for result in results:
         if isinstance(result, Exception):
             return f"{result.args[0]}"
