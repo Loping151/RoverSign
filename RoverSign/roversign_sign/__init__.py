@@ -22,6 +22,7 @@ SIGN_TIME = RoverSignConfig.get_config("SignTime").data
 @sv_waves_sign.on_fullmatch(
     (
         "签到",
+        "qd",
         "社区签到",
         "每日任务",
         "社区任务",
@@ -120,7 +121,7 @@ else:
     logger.info("[RoverSign] 反复签到未开启，仅执行1次自动签到")
 
 
-@waves_sign_all.on_fullmatch(("全部签到"))
+@waves_sign_all.on_fullmatch(("全部签到", "qbqd"), block=True)
 async def rover_sign_recheck_all(bot: Bot, ev: Event):
     # 检查是否已经在签到中
     if signing_state.is_signing():
