@@ -581,7 +581,9 @@ async def to_board_cast_msg(
     group_msg_dict: Dict[str, BoardCastMsg] = {}
     for qid in private_msgs:
         msgs = []
-        for i in private_msgs[qid]:
+        for _, i in enumerate(private_msgs[qid]):
+            if _ > 0:
+                messages.append(MessageSegment.text("\n"))
             msgs.extend(i["msg"])
 
         if qid not in private_msg_dict:
