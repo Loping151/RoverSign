@@ -5,7 +5,7 @@ from typing import Literal
 class BoardcastTypeEnum(str, Enum):
     """订阅类型"""
 
-    SIGN_RESULT = "订阅签到结果"
+    SIGN_RESULT = "订阅鸣潮签到结果"
     SIGN_WAVES = "订阅鸣潮签到"
 
 
