@@ -583,7 +583,7 @@ async def to_board_cast_msg(
         msgs = []
         for _, i in enumerate(private_msgs[qid]):
             if _ > 0:
-                messages.append(MessageSegment.text("\n"))
+                msgs.append(MessageSegment.text("\n"))
             msgs.extend(i["msg"])
 
         if qid not in private_msg_dict:
