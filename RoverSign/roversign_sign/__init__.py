@@ -165,7 +165,7 @@ async def rover_sign_result(bot: Bot, ev: Event):
     await bot.send(f"[RoverSign] [订阅签到结果] 已{option}订阅!")
 
 
-@scheduler.scheduled_job("cron", hour=0, minute=5)
+@scheduler.scheduled_job("cron", hour=0, minute=5, id="clear_end_sign")
 async def clear_sign_record():
     """清除2天前的签到记录"""
     await RoverSign.clear_sign_record(get_two_days_ago_date())
