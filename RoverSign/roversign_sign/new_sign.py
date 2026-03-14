@@ -324,10 +324,13 @@ async def rover_auto_sign_task():
 
         logger.info(f"[RoverSign] 总用户数：{len(_all_user_list)}")
 
-        for user in _all_user_list:
+        for _i, user in enumerate(_all_user_list):
             _uid = user.user_id
             if not _uid:
                 continue
+
+            if _i % 100 == 0:
+                await asyncio.sleep(0)
 
             is_signed_waves_game = False
             is_signed_pgr_game = False
