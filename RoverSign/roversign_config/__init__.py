@@ -3,7 +3,8 @@ from gsuid_core.logger import logger
 from gsuid_core.models import Event
 from gsuid_core.sv import SV, get_plugin_available_prefix
 
-from ..utils.database.models import WavesBind
+from ..utils.api.api import PGR_GAME_ID
+from ..utils.database.models import WavesBind, WavesUser
 from .set_config import set_config_func
 
 sv_rover_config = SV("RoverSign配置")
@@ -38,5 +39,30 @@ async def open_switch_func(bot: Bot, ev: Event):
     logger.info(f"[{ev.user_id}]尝试[{ev.command[0:2]}]了[{ev.text}]功能")
 
     im = await set_config_func(ev, uid)
+
+    # 补充处理战双(PGR)的所有有效UID
+    pgr_uid_list = await WavesBind.get_uid_list_by_game(
+        ev.user_id, ev.bot_id, game_name="pgr"
+    )
+    if pgr_uid_list:
+        if "开启" in ev.command:
+            option = ev.group_id if ev.group_id else "on"
+        else:
+            option = "off"
+        for pgr_uid in pgr_uid_list:
+            pgr_user = await WavesUser.select_waves_user(
+                pgr_uid, ev.user_id, ev.bot_id, game_id=PGR_GAME_ID
+            )
+            if pgr_user and pgr_user.cookie and pgr_user.status != "无效":
+                await WavesUser.update_data_by_uid(
+                    uid=pgr_uid,
+                    bot_id=ev.bot_id,
+                    sign_switch=option,
+                    bbs_sign_switch=option,
+                )
+                logger.info(
+                    f"[{ev.user_id}]战双UID[{pgr_uid}]已[{ev.command[0:2]}]自动签到"
+                )
+
     im = im.rstrip("\n") if isinstance(im, str) else im
     await bot.send((" " if at_sender and isinstance(im, str) else "") + im if isinstance(im, str) else im, at_sender)
