@@ -158,6 +158,10 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
     if not waves_uid_list and not pgr_uid_list:
         return WAVES_CODE_101_MSG
 
+    # 国际服鸣潮 UID 走 launcher SDK，KuroBBS 签到接口对它无效，整体跳过
+    waves_net_uid_list = [u for u in waves_uid_list if rover_api.is_net(u)]
+    waves_uid_list = [u for u in waves_uid_list if not rover_api.is_net(u)]
+
     # 更新鸣潮账号的最后使用时间
     if waves_uid_list:
         for waves_uid in waves_uid_list:
@@ -224,6 +228,11 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
 
         if bbs_enabled and main_uid:
             msg_list.append(f"社区签到状态: {sign_status['skip']}")
+
+        if waves_net_uid_list:
+            msg_list.append(
+                f"国际服 UID 跳过签到(不支持): {', '.join(waves_net_uid_list)}"
+            )
 
         return "\n".join(msg_list) if msg_list else WAVES_CODE_101_MSG
 
@@ -293,6 +302,11 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
         for uid in expire_uid:
             msg_list.append(f"失效特征码: {uid}")
 
+    if waves_net_uid_list:
+        msg_list.append(
+            f"国际服 UID 跳过签到(不支持): {', '.join(waves_net_uid_list)}"
+        )
+
     return "\n".join(msg_list) if msg_list else WAVES_CODE_101_MSG
 
 
@@ -327,6 +341,10 @@ async def rover_auto_sign_task():
         for _i, user in enumerate(_all_user_list):
             _uid = user.user_id
             if not _uid:
+                continue
+
+            # 国际服鸣潮 UID 走 launcher SDK，KuroBBS 签到不支持，跳过
+            if user.game_id == WAVES_GAME_ID and rover_api.is_net(user.uid):
                 continue
 
             if _i % 100 == 0:
