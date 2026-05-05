@@ -47,6 +47,7 @@ class WavesUser(User, table=True):
     record_id: Optional[str] = Field(default=None, title="记录ID")
     platform: str = Field(default="", title="ck平台")
     stamina_bg_value: str = Field(default="", title="体力背景")
+    hide_uid_self_value: str = Field(default="", title="隐藏UID")
     bbs_sign_switch: str = Field(default="off", title="自动社区签到")
     bat: str = Field(default="", title="bat")
     did: str = Field(default="", title="did")

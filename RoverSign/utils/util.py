@@ -119,10 +119,16 @@ def get_two_days_ago_date():
 
 def hide_uid(uid) -> str:
     from ..roversign_config.roversign_config import RoverSignConfig
+    # 复用 XutheringWavesUID 的共享缓存 (同一张 WavesUser 表, 同一个字段)
+    from gsuid_core.plugins.XutheringWavesUID.XutheringWavesUID.utils.hide_uid_pref import get_pref
 
     uid_str = str(uid) if uid is not None else ""
-    if not RoverSignConfig.get_config("HideUid").data:
+    pref = get_pref(uid_str)
+    if pref == "off":
         return uid_str
+    if pref != "on":
+        if not RoverSignConfig.get_config("HideUid").data:
+            return uid_str
     if len(uid_str) < 2:
         return uid_str
     return uid_str[:2] + "*" * 4 + uid_str[-2:]
