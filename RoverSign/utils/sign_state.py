@@ -3,7 +3,6 @@
 用于记录和恢复签到任务状态，支持重启后继续执行
 """
 import json
-from pathlib import Path
 from typing import Optional, Literal
 from datetime import datetime
 
@@ -35,18 +34,7 @@ class SigningState:
 
     @staticmethod
     def get_state() -> Optional[dict]:
-        """
-        获取当前签到状态
-
-        Returns:
-            dict: {
-                "type": "auto" | "manual",  # 签到类型
-                "start_time": "2024-01-13 08:30:00",  # 开始时间
-                "total": 100,  # 总用户数（可选）
-                "completed": 50,  # 已完成数（可选）
-            }
-            None: 如果没有正在进行的签到
-        """
+        """获取当前签到状态。返回 {"type", "start_time"} 或 None。"""
         if not STATE_FILE.exists():
             return None
 
@@ -60,57 +48,18 @@ class SigningState:
             return None
 
     @staticmethod
-    def set_state(
-        sign_type: SignType,
-        total: Optional[int] = None,
-        completed: int = 0
-    ):
-        """
-        设置签到状态
-
-        Args:
-            sign_type: 签到类型 ("auto" 或 "manual")
-            total: 总用户数（可选）
-            completed: 已完成数（默认0）
-        """
+    def set_state(sign_type: SignType):
+        """设置签到状态。"""
         state = {
             "type": sign_type,
             "start_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
-
-        if total is not None:
-            state["total"] = total
-            state["completed"] = completed
-
         try:
             with open(STATE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(state, f, ensure_ascii=False, indent=2)
-            logger.info(f"[SignState] 创建状态文件: type={sign_type}, total={total}")
+            logger.info(f"[SignState] 创建状态文件: type={sign_type}")
         except Exception as e:
             logger.error(f"[SignState] 创建状态文件失败: {e}")
-
-    @staticmethod
-    def update_progress(completed: int):
-        """
-        更新签到进度
-
-        Args:
-            completed: 已完成数
-        """
-        state = SigningState.get_state()
-        if not state:
-            logger.warning("[SignState] 无法更新进度，状态文件不存在")
-            return
-
-        state["completed"] = completed
-        state["update_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        try:
-            with open(STATE_FILE, 'w', encoding='utf-8') as f:
-                json.dump(state, f, ensure_ascii=False, indent=2)
-            logger.debug(f"[SignState] 更新进度: {completed}/{state.get('total', '?')}")
-        except Exception as e:
-            logger.error(f"[SignState] 更新进度失败: {e}")
 
     @staticmethod
     def clear_state():
