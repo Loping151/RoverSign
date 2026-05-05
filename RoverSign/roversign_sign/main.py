@@ -12,6 +12,7 @@ from ..utils.database.models import RoverSign, RoverSignData
 from ..utils.database.states import SignStatus
 from ..utils.fonts.waves_fonts import waves_font_24
 from ..utils.rover_api import rover_api
+from ..utils.util import hide_uid
 
 BBS_TASK_KEYWORDS: Dict[str, str] = {
     "bbs_sign": "签到",
@@ -297,7 +298,7 @@ async def single_task(
     im = await do_single_task(uid, ck)
     if isinstance(im, dict):
         msg = []
-        msg.append(f"特征码: {uid}")
+        msg.append(f"特征码: {hide_uid(uid)}")
         for i, r in im.items():
             if r:
                 msg.append(f"{i}: 成功")

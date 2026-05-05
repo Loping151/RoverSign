@@ -128,4 +128,9 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "开启后仅对活跃账号进行签到（需配合活跃账号认定天数使用）",
         False,
     ),
+    "HideUid": GsBoolConfig(
+        "隐藏uid",
+        "开启后，所有渲染卡片中显示的UID将以 前2位 + **** + 后2位 的形式显示",
+        False,
+    ),
 }

@@ -115,3 +115,14 @@ def get_yesterday_date():
 def get_two_days_ago_date():
     two_days_ago = datetime.now() - timedelta(days=2)
     return two_days_ago.strftime("%Y-%m-%d")
+
+
+def hide_uid(uid) -> str:
+    from ..roversign_config.roversign_config import RoverSignConfig
+
+    uid_str = str(uid) if uid is not None else ""
+    if not RoverSignConfig.get_config("HideUid").data:
+        return uid_str
+    if len(uid_str) < 2:
+        return uid_str
+    return uid_str[:2] + "*" * 4 + uid_str[-2:]
