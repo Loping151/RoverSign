@@ -117,16 +117,17 @@ def get_two_days_ago_date():
     return two_days_ago.strftime("%Y-%m-%d")
 
 
-def hide_uid(uid) -> str:
+def hide_uid(uid, user_pref: str = "") -> str:
+    """user_pref: 该 uid 对应 WavesUser.hide_uid_self_value, 由 caller 传入。
+
+    "on" 强制隐藏 / "off" 强制不隐藏 / "" 跟随全局 HideUid。
+    """
     from ..roversign_config.roversign_config import RoverSignConfig
-    # 复用 XutheringWavesUID 的共享缓存 (同一张 WavesUser 表, 同一个字段)
-    from gsuid_core.plugins.XutheringWavesUID.XutheringWavesUID.utils.hide_uid_pref import get_pref
 
     uid_str = str(uid) if uid is not None else ""
-    pref = get_pref(uid_str)
-    if pref == "off":
+    if user_pref == "off":
         return uid_str
-    if pref != "on":
+    if user_pref != "on":
         if not RoverSignConfig.get_config("HideUid").data:
             return uid_str
     if len(uid_str) < 2:
