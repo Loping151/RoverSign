@@ -22,7 +22,7 @@ from ..utils.database.states import SignStatus
 from ..utils.errors import WAVES_CODE_101_MSG
 from ..utils.api.api import WAVES_GAME_ID, PGR_GAME_ID
 from ..utils.rover_api import rover_api
-from ..utils.util import hide_uid
+from ..utils.util import get_hide_uid_pref, hide_uid
 from .main import (
     create_sign_info_image,
     do_single_task,
@@ -183,6 +183,31 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
                 game_id=PGR_GAME_ID,
             )
 
+    waves_user_prefs = {
+        uid: await get_hide_uid_pref(
+            uid,
+            ev.user_id,
+            ev.bot_id,
+            game_id=WAVES_GAME_ID,
+        )
+        for uid in [*waves_uid_list, *waves_net_uid_list]
+    }
+    pgr_user_prefs = {
+        uid: await get_hide_uid_pref(
+            uid,
+            ev.user_id,
+            ev.bot_id,
+            game_id=PGR_GAME_ID,
+        )
+        for uid in pgr_uid_list
+    }
+
+    def mask_waves_uid(uid: str) -> str:
+        return hide_uid(uid, user_pref=waves_user_prefs.get(uid, ""))
+
+    def mask_pgr_uid(uid: str) -> str:
+        return hide_uid(uid, user_pref=pgr_user_prefs.get(uid, ""))
+
     bbs_link_config = get_bbs_link_config()
     main_uid = waves_uid_list[0] if waves_uid_list else None
 
@@ -217,13 +242,13 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
         sign_status = get_sign_status()
         if waves_enabled and waves_uid_list:
             for waves_uid in waves_uid_list:
-                msg_list.append(f"[鸣潮] 特征码: {hide_uid(waves_uid)}")
+                msg_list.append(f"[鸣潮] 特征码: {mask_waves_uid(waves_uid)}")
                 msg_list.append(f"签到状态: {sign_status['skip']}")
                 msg_list.append("-----------------------------")
 
         if pgr_enabled and pgr_uid_list:
             for pgr_uid in pgr_uid_list:
-                msg_list.append(f"[战双] 特征码: {hide_uid(pgr_uid)}")
+                msg_list.append(f"[战双] 特征码: {mask_pgr_uid(pgr_uid)}")
                 msg_list.append(f"签到状态: {sign_status['skip']}")
                 msg_list.append("-----------------------------")
 
@@ -232,7 +257,8 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
 
         if waves_net_uid_list:
             msg_list.append(
-                f"国际服 UID 跳过签到(不支持): {', '.join(hide_uid(u) for u in waves_net_uid_list)}"
+                "国际服 UID 跳过签到(不支持): "
+                + ", ".join(mask_waves_uid(u) for u in waves_net_uid_list)
             )
 
         return "\n".join(msg_list) if msg_list else WAVES_CODE_101_MSG
@@ -263,7 +289,7 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
             else:
                 waves_signed = await action_waves_sign_in(waves_uid, token)
 
-            msg_list.append(f"[鸣潮] 特征码: {hide_uid(waves_uid)}")
+            msg_list.append(f"[鸣潮] 特征码: {mask_waves_uid(waves_uid)}")
             msg_list.append(f"签到状态: {sign_status[waves_signed]}")
             msg_list.append("-----------------------------")
 
@@ -279,7 +305,7 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
             else:
                 pgr_signed = await action_pgr_sign_in(pgr_uid, main_token)
 
-            msg_list.append(f"[战双] 特征码: {hide_uid(pgr_uid)}")
+            msg_list.append(f"[战双] 特征码: {mask_pgr_uid(pgr_uid)}")
             msg_list.append(f"签到状态: {sign_status[pgr_signed]}")
             msg_list.append("-----------------------------")
 
@@ -301,11 +327,13 @@ async def rover_sign_up_handler(bot: Bot, ev: Event):
     if expire_uid:
         msg_list.append("-----------------------------")
         for uid in expire_uid:
-            msg_list.append(f"失效特征码: {hide_uid(uid)}")
+            user_pref = waves_user_prefs.get(uid, pgr_user_prefs.get(uid, ""))
+            msg_list.append(f"失效特征码: {hide_uid(uid, user_pref=user_pref)}")
 
     if waves_net_uid_list:
         msg_list.append(
-            f"国际服 UID 跳过签到(不支持): {', '.join(hide_uid(u) for u in waves_net_uid_list)}"
+            "国际服 UID 跳过签到(不支持): "
+            + ", ".join(mask_waves_uid(u) for u in waves_net_uid_list)
         )
 
     return "\n".join(msg_list) if msg_list else WAVES_CODE_101_MSG

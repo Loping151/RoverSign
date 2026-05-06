@@ -3,9 +3,9 @@ from gsuid_core.logger import logger
 from gsuid_core.models import Event
 from gsuid_core.sv import SV, get_plugin_available_prefix
 
-from ..utils.api.api import PGR_GAME_ID
+from ..utils.api.api import PGR_GAME_ID, WAVES_GAME_ID
 from ..utils.database.models import WavesBind, WavesUser
-from ..utils.util import hide_uid
+from ..utils.util import get_hide_uid_pref, hide_uid
 from .set_config import set_config_func
 
 sv_rover_config = SV("RoverSign配置")
@@ -34,7 +34,16 @@ async def open_switch_func(bot: Bot, ev: Event):
     if not token:
         from ..utils.errors import WAVES_CODE_101_MSG
 
-        msg = f"当前特征码：{hide_uid(uid)}\n{WAVES_CODE_101_MSG.rstrip(chr(10))}"
+        user_pref = await get_hide_uid_pref(
+            uid,
+            ev.user_id,
+            ev.bot_id,
+            game_id=WAVES_GAME_ID,
+        )
+        msg = (
+            f"当前特征码：{hide_uid(uid, user_pref=user_pref)}\n"
+            f"{WAVES_CODE_101_MSG.rstrip(chr(10))}"
+        )
         return await bot.send((" " if at_sender else "") + msg, at_sender)
 
     logger.info(f"[{ev.user_id}]尝试[{ev.command[0:2]}]了[{ev.text}]功能")

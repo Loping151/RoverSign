@@ -133,3 +133,20 @@ def hide_uid(uid, user_pref: str = "") -> str:
     if len(uid_str) < 2:
         return uid_str
     return uid_str[:2] + "*" * 4 + uid_str[-2:]
+
+
+async def get_hide_uid_pref(uid: str, user_id: str, bot_id: str, game_id=None) -> str:
+    """读 WavesUser.hide_uid_self_value, 没绑定就回空 (走全局 HideUid)。"""
+
+    from .database.models import WavesUser
+
+    try:
+        user = await WavesUser.select_waves_user(
+            uid,
+            user_id,
+            bot_id,
+            game_id=game_id,
+        )
+        return user.hide_uid_self_value if user else ""
+    except Exception:
+        return ""
