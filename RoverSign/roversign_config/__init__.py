@@ -14,7 +14,17 @@ sv_rover_config = SV("RoverSign配置")
 PREFIX = get_plugin_available_prefix("RoverSign")
 
 
-@sv_rover_config.on_prefix(("开启", "关闭"))
+@sv_rover_config.on_prefix(
+    ("开启", "关闭"),
+    to_ai="""开启或关闭自己鸣潮账号的每日自动签到任务。
+
+当用户问「开启自动签到 / 关闭自动签到 / 帮我开/关自动签到」时调用。
+text 必须是 "自动签到"。需绑定 cookie。命令字本身（"开启" / "关闭"）决定开还是关。
+
+Args:
+    text: 必须是 "自动签到"。例: command="开启" + text="自动签到"。
+""",
+)
 async def open_switch_func(bot: Bot, ev: Event):
     if ev.text != "自动签到":
         return

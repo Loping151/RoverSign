@@ -30,6 +30,15 @@ SIGN_TIME = RoverSignConfig.get_config("SignTime").data
         "sign",
     ),
     block=True,
+    to_ai="""用户主动执行鸣潮库街区签到（每日打卡 + 完成社区任务）。
+
+当用户问「签到 / 帮我签个到 / 我要签到 / 库街区签到 / 还没签到」时调用。
+需绑定 cookie。返回签到结果文本（成功/已签/失败原因）。
+用户主动授权 AI 代为执行，不算危险写操作。
+
+Args:
+    text: 无需参数，留空即可。
+""",
 )
 async def rover_user_sign(bot: Bot, ev: Event):
     msg = await rover_sign_up_handler(bot, ev)
