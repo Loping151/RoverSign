@@ -14,12 +14,12 @@ from gsuid_core.logger import logger
 
 from ...utils.util import generate_random_string, get_public_ip
 
-KURO_VERSION = "3.0.0"
+KURO_VERSION = "3.0.3"
 PLATFORM_SOURCE = "ios"
 CONTENT_TYPE = "application/x-www-form-urlencoded; charset=utf-8"
 IOS_USER_AGENT = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) "
-    "AppleWebKit/605.1.15 (KHTML, like Gecko)  KuroGameBox/3.0.0"
+    "AppleWebKit/605.1.15 (KHTML, like Gecko)  KuroGameBox/3.0.3"
 )
 ANDROID_USER_AGENT = (
     "Mozilla/5.0 (Linux; Android 16; 25098PN5AC Build/BP2A.250605.031.A3; wv) "
@@ -29,8 +29,10 @@ ANDROID_USER_AGENT = (
 
 
 async def get_base_header(devCode: Optional[str] = None):
-    platform_source = random.choice(["ios", "android"])
-    user_agent = IOS_USER_AGENT if platform_source == "ios" else ANDROID_USER_AGENT
+    # platform_source = random.choice(["ios", "android"])
+    # user_agent = IOS_USER_AGENT if platform_source == "ios" else ANDROID_USER_AGENT
+    platform_source = "ios"
+    user_agent = IOS_USER_AGENT
     header = {
         "source": platform_source,
         "Content-Type": CONTENT_TYPE,
