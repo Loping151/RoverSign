@@ -79,8 +79,8 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         False,
     ),
     "KuroUrlProxyUrl": GsStrConfig(
-        "库洛域名代理（重启生效）",
-        "库洛域名代理（重启生效）",
+        "库洛域名代理（重载生效）",
+        "库洛域名代理（重载生效）",
         "",
     ),
     "LocalProxyUrl": GsStrConfig(
