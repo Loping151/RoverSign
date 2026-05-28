@@ -14,7 +14,7 @@ from ..utils.database.rover_subscribe import RoverSubscribe
 async def send_board_cast_msg(
     msgs: BoardCastMsgDict, board_cast_type: BoardcastType
 ):
-    logger.info(f"[推送] {board_cast_type} 任务启动...")
+    logger.info(f"[库洛签到·推送] {board_cast_type} 任务启动...")
     private_msg_list = msgs["private_msg_dict"]
     group_msg_list = msgs["group_msg_dict"]
 
@@ -49,9 +49,9 @@ async def send_board_cast_msg(
                         "",
                     )
         except Exception as e:
-            logger.exception(f"[推送] {qid} 私聊推送失败!错误信息", e)
+            logger.exception(f"[库洛签到·推送] {qid} 私聊推送失败!错误信息", e)
         await asyncio.sleep(0.5 + random.randint(1, 3))
-    logger.info(f"[推送] {board_cast_type} 私聊推送完成!")
+    logger.info(f"[库洛签到·推送] {board_cast_type} 私聊推送完成!")
 
     # 执行群聊推送
     for gid in group_msg_list:
@@ -66,7 +66,7 @@ async def send_board_cast_msg(
                     bot_self_id = group_msg_list[gid].get("bot_id", "")
 
             if not bot_self_id:
-                logger.warning(f"[推送] 群 {gid} 无法获取 bot_self_id，跳过")
+                logger.warning(f"[库洛签到·推送] 群 {gid} 无法获取 bot_self_id，跳过")
                 continue
 
             for ws_bot_id in gss.active_bot:
@@ -91,7 +91,7 @@ async def send_board_cast_msg(
                         "",
                     )
         except Exception as e:
-            logger.exception(f"[推送] 群 {gid} 推送失败!错误信息", e)
+            logger.exception(f"[库洛签到·推送] 群 {gid} 推送失败!错误信息", e)
         await asyncio.sleep(0.5 + random.randint(1, 3))
-    logger.info(f"[推送] {board_cast_type} 群聊推送完成!")
-    logger.info(f"[推送] {board_cast_type} 任务结束!")
+    logger.info(f"[库洛签到·推送] {board_cast_type} 群聊推送完成!")
+    logger.info(f"[库洛签到·推送] {board_cast_type} 任务结束!")

@@ -56,7 +56,7 @@ async def open_switch_func(bot: Bot, ev: Event):
         )
         return await bot.send((" " if at_sender else "") + msg, at_sender)
 
-    logger.info(f"[{ev.user_id}]尝试[{ev.command[0:2]}]了[{ev.text}]功能")
+    logger.info(f"[库洛签到·配置] user_id={ev.user_id} 尝试[{ev.command[0:2]}]了[{ev.text}]功能")
 
     im = await set_config_func(ev, uid)
 
@@ -81,7 +81,7 @@ async def open_switch_func(bot: Bot, ev: Event):
                     bbs_sign_switch=option,
                 )
                 logger.info(
-                    f"[{ev.user_id}]战双UID[{pgr_uid}]已[{ev.command[0:2]}]自动签到"
+                    f"[库洛签到·配置] user_id={ev.user_id} 战双UID[{pgr_uid}]已[{ev.command[0:2]}]自动签到"
                 )
 
     im = im.rstrip("\n") if isinstance(im, str) else im

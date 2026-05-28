@@ -41,10 +41,10 @@ class SigningState:
         try:
             with open(STATE_FILE, 'r', encoding='utf-8') as f:
                 state = json.load(f)
-            logger.debug(f"[SignState] 读取状态文件: {state}")
+            logger.debug(f"[库洛签到·签到状态] 读取状态文件: {state}")
             return state
         except Exception as e:
-            logger.error(f"[SignState] 读取状态文件失败: {e}")
+            logger.error(f"[库洛签到·签到状态] 读取状态文件失败: {e}")
             return None
 
     @staticmethod
@@ -57,9 +57,9 @@ class SigningState:
         try:
             with open(STATE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(state, f, ensure_ascii=False, indent=2)
-            logger.info(f"[SignState] 创建状态文件: type={sign_type}")
+            logger.info(f"[库洛签到·签到状态] 创建状态文件: type={sign_type}")
         except Exception as e:
-            logger.error(f"[SignState] 创建状态文件失败: {e}")
+            logger.error(f"[库洛签到·签到状态] 创建状态文件失败: {e}")
 
     @staticmethod
     def clear_state():
@@ -67,9 +67,9 @@ class SigningState:
         if STATE_FILE.exists():
             try:
                 STATE_FILE.unlink()
-                logger.info("[SignState] 删除状态文件（签到已完成）")
+                logger.info("[库洛签到·签到状态] 删除状态文件（签到已完成）")
             except Exception as e:
-                logger.error(f"[SignState] 删除状态文件失败: {e}")
+                logger.error(f"[库洛签到·签到状态] 删除状态文件失败: {e}")
 
     @staticmethod
     def should_resume() -> bool:
@@ -93,14 +93,14 @@ class SigningState:
             elapsed = (now - start_time).total_seconds()
 
             if elapsed > 86400:  # 24小时
-                logger.warning(f"[SignState] 状态文件已过期（{elapsed/3600:.1f}小时），清除")
+                logger.warning(f"[库洛签到·签到状态] 状态文件已过期（{elapsed/3600:.1f}小时），清除")
                 SigningState.clear_state()
                 return False
 
-            logger.info(f"[SignState] 发现未完成的签到任务: type={state['type']}, elapsed={elapsed/60:.1f}分钟")
+            logger.info(f"[库洛签到·签到状态] 发现未完成的签到任务: type={state['type']}, elapsed={elapsed/60:.1f}分钟")
             return True
         except Exception as e:
-            logger.error(f"[SignState] 检查状态文件时出错: {e}")
+            logger.error(f"[库洛签到·签到状态] 检查状态文件时出错: {e}")
             return False
 
 

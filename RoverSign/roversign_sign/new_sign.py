@@ -109,7 +109,7 @@ async def action_pgr_sign_in(uid: str, token: str):
 
     if "成功" in res or "已签到" in res:
         signed = True
-        logger.info(f"[战双签到] {uid} 签到完成")
+        logger.info(f"[库洛签到·战双签到] {uid} 签到完成")
 
     return signed
 
@@ -360,12 +360,12 @@ async def rover_auto_sign_task():
         if sign_active_only:
             active_days = RoverSignConfig.get_config("ActiveUserDays").data
             _active_user_set = set(u.uid for u in await WavesUser.get_active_waves_user(active_days))
-            logger.info(f"[RoverSign] 定时任务仅签到活跃账号，活跃天数：{active_days}，活跃用户数：{len(_active_user_set)}")
+            logger.info(f"[库洛签到·签到] 定时任务仅签到活跃账号，活跃天数：{active_days}，活跃用户数：{len(_active_user_set)}")
         else:
             _active_user_set = None
-            logger.info(f"[RoverSign] 定时任务签到所有账号")
+            logger.info(f"[库洛签到·签到] 定时任务签到所有账号")
 
-        logger.info(f"[RoverSign] 总用户数：{len(_all_user_list)}")
+        logger.info(f"[库洛签到·签到] 总用户数：{len(_all_user_list)}")
 
         for _i, user in enumerate(_all_user_list):
             _uid = user.user_id
@@ -482,7 +482,7 @@ async def rover_auto_sign_task():
         if (
             RoverSignConfig.get_config("SchedSignin").data and user.uid in pgr_sign_user
         ) or RoverSignConfig.get_config("SigninMaster").data and user.uid in pgr_sign_user:
-            logger.info(f"[战双签到] 开始为 UID {user.uid} 执行战双签到")
+            logger.info(f"[库洛签到·战双签到] 开始为 UID {user.uid} 执行战双签到")
             await single_pgr_daily_sign(
                 user.bot_id,
                 user.uid,
@@ -522,7 +522,7 @@ async def rover_auto_sign_task():
             rover_sign = [await RoverSign.get_sign_data(uid) for uid in _token_dict.get(user.cookie, [])]
             if any([rover and SignStatus.bbs_sign_complete(rover, bbs_link_config) for rover in rover_sign]):
                 # 已完成社区签到，跳过
-                logger.debug(f"[社区签到] UID {user.uid} 今日已完成，跳过")
+                logger.debug(f"[库洛签到·社区] UID {user.uid} 今日已完成，跳过")
             else:
                 await single_task(
                     user.bot_id,
@@ -536,17 +536,17 @@ async def rover_auto_sign_task():
                 )
 
             await asyncio.sleep(random.randint(2, 4))
-        logger.info(f"[自动签到] UID {user.uid} 签到任务完成")
+        logger.info(f"[库洛签到·自动] UID {user.uid} 签到任务完成")
 
     async def process_user(semaphore, user: WavesUser):
-        logger.debug(f"[自动签到] 处理 UID {user.uid} 的签到任务")
+        logger.debug(f"[库洛签到·自动] 处理 UID {user.uid} 的签到任务")
         async with semaphore:
             try:
                 await asyncio.wait_for(_process_user_inner(user), timeout=_USER_TIMEOUT)
             except asyncio.TimeoutError:
-                logger.warning(f"[自动签到] UID {user.uid} 签到超时（{_USER_TIMEOUT}s），跳过")
+                logger.warning(f"[库洛签到·自动] UID {user.uid} 签到超时（{_USER_TIMEOUT}s），跳过")
             except Exception as e:
-                logger.error(f"[自动签到] UID {user.uid} 签到异常: {e}")
+                logger.error(f"[库洛签到·自动] UID {user.uid} 签到异常: {e}")
 
     if not need_user_list:
         return "暂无需要签到的账号"
@@ -671,7 +671,7 @@ async def to_board_cast_msg(
             bot_self_id = await WavesSubscribeReader.get_group_bot(gid)
         if not bot_self_id:
             bot_self_id = group_msgs[gid]["bot_id"]
-            logger.debug(f"[RoverSign] 群 {gid} 未找到绑定，使用 fallback: {bot_self_id}")
+            logger.debug(f"[库洛签到·签到] 群 {gid} 未找到绑定，使用 fallback: {bot_self_id}")
 
         group_msg_dict[gid] = {
             "bot_id": bot_self_id,

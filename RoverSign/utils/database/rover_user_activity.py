@@ -39,7 +39,7 @@ class RoverUserActivity(BaseBotIDModel, table=True):
             return await cls._do_update_user_activity(user_id, bot_id, bot_self_id)
         except Exception as e:
             if "malformed" in str(e) or "corrupt" in str(e):
-                logger.warning(f"[RoverUserActivity] 数据库损坏，跳过活跃度更新: {e}")
+                logger.warning(f"[库洛签到·用户活跃度] 数据库损坏，跳过活跃度更新: {e}")
                 return False
             raise
 
@@ -93,7 +93,7 @@ class RoverUserActivity(BaseBotIDModel, table=True):
             return await cls._do_get_user_last_active_time(user_id, bot_id, bot_self_id)
         except Exception as e:
             if "malformed" in str(e) or "corrupt" in str(e):
-                logger.warning(f"[RoverUserActivity] 数据库损坏，跳过活跃度查询: {e}")
+                logger.warning(f"[库洛签到·用户活跃度] 数据库损坏，跳过活跃度查询: {e}")
                 return None
             raise
 
@@ -127,7 +127,7 @@ class RoverUserActivity(BaseBotIDModel, table=True):
             return await cls._do_get_active_user_count(active_days)
         except Exception as e:
             if "malformed" in str(e) or "corrupt" in str(e):
-                logger.warning(f"[RoverUserActivity] 数据库损坏，返回活跃用户数0: {e}")
+                logger.warning(f"[库洛签到·用户活跃度] 数据库损坏，返回活跃用户数0: {e}")
                 return 0
             raise
 

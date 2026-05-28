@@ -199,7 +199,7 @@ class RoverRequest:
                         break
             if not serverId:
                 logger.debug(
-                    f"[get_request_token] 未能获取战双 serverId - roleId: {roleId}"
+                    f"[库洛签到·请求token] 未能获取战双 serverId - roleId: {roleId}"
                 )
                 return False, ""
         data = {
@@ -207,7 +207,7 @@ class RoverRequest:
             "roleId": roleId,
         }
         raw_data = await self._waves_request(REQUEST_TOKEN, "POST", header, data=data)
-        logger.debug(f"[get_request_token] raw_data: {raw_data}")
+        logger.debug(f"[库洛签到·请求token] raw_data: {raw_data}")
         if raw_data.success and isinstance(raw_data.data, dict):
             if accessToken := raw_data.data.get("accessToken", ""):
                 return True, accessToken

@@ -10,7 +10,7 @@ def is_from_plugin(plugin_name: str = "RoverSign") -> bool:
     result = current_plugin == plugin_name
 
     if result:
-        logger.debug(f"[RS PluginChecker] 调用来自插件 {plugin_name}")
+        logger.debug(f"[库洛签到·插件检查] 调用来自插件 {plugin_name}")
 
     return result
 
@@ -54,12 +54,12 @@ def get_current_plugin() -> Optional[str]:
 
         if all_plugins:
             result = all_plugins[-1]  # 最后一个就是离 hook 调用最近的
-            logger.debug(f"[RS PluginChecker] 找到的插件列表: {all_plugins}, 返回: {result}")
+            logger.debug(f"[库洛签到·插件检查] 找到的插件列表: {all_plugins}, 返回: {result}")
             return result
     finally:
         del frame
 
-    logger.debug(f"[RS PluginChecker] 未找到插件来源")
+    logger.debug(f"[库洛签到·插件检查] 未找到插件来源")
     return None
 
 

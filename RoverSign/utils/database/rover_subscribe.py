@@ -55,7 +55,7 @@ class RoverSubscribe(BaseModel, table=True):
         current_time = int(time.time())
 
         logger.debug(
-            f"[RoverSubscribe] check_and_update_bot 被调用: group_id={group_id}, bot_self_id={bot_self_id}"
+            f"[库洛签到·订阅] check_and_update_bot 被调用: group_id={group_id}, bot_self_id={bot_self_id}"
         )
 
         # 查询现有记录
@@ -65,13 +65,13 @@ class RoverSubscribe(BaseModel, table=True):
 
         if existing:
             logger.debug(
-                f"[RoverSubscribe] 找到现有记录: group_id={group_id}, existing.bot_self_id={existing.bot_self_id}, new_bot_self_id={bot_self_id}"
+                f"[库洛签到·订阅] 找到现有记录: group_id={group_id}, existing.bot_self_id={existing.bot_self_id}, new_bot_self_id={bot_self_id}"
             )
             # 检查bot是否变化
             if existing.bot_self_id != bot_self_id:
                 old_bot_self_id = existing.bot_self_id
                 logger.info(
-                    f"[RoverSign订阅] 检测到群 {group_id} 的bot变更: {old_bot_self_id} -> {bot_self_id}"
+                    f"[库洛签到·订阅] 检测到群 {group_id} 的bot变更: {old_bot_self_id} -> {bot_self_id}"
                 )
 
                 # 更新所有订阅的bot_self_id
@@ -89,7 +89,7 @@ class RoverSubscribe(BaseModel, table=True):
 
                 if update_result.rowcount > 0:
                     logger.info(
-                        f"[RoverSign订阅] 已自动更新 {update_result.rowcount} 条订阅记录的bot_self_id"
+                        f"[库洛签到·订阅] 已自动更新 {update_result.rowcount} 条订阅记录的bot_self_id"
                     )
 
                 # 更新记录
@@ -105,7 +105,7 @@ class RoverSubscribe(BaseModel, table=True):
                 return False
         else:
             logger.debug(
-                f"[RoverSubscribe] 未找到记录，创建新记录: group_id={group_id}, bot_self_id={bot_self_id}"
+                f"[库洛签到·订阅] 未找到记录，创建新记录: group_id={group_id}, bot_self_id={bot_self_id}"
             )
             # 使用 INSERT ... ON CONFLICT DO UPDATE 原子操作，避免并发 INSERT 竞态导致索引损坏
             stmt = sqlite_insert(cls).values(
@@ -123,7 +123,7 @@ class RoverSubscribe(BaseModel, table=True):
                 },
             )
             await session.execute(stmt)
-            logger.debug(f"[RoverSign订阅] 首次记录群 {group_id} 的bot: {bot_self_id}")
+            logger.debug(f"[库洛签到·订阅] 首次记录群 {group_id} 的bot: {bot_self_id}")
             return False
 
     @classmethod

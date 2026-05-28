@@ -72,7 +72,7 @@ async def do_sign_in(taskData, uid, token, rover_sign: RoverSignData):
         # 签到成功
         rover_sign.bbs_sign = SignStatus.BBS_SIGN
         return True
-    logger.warning(f"[鸣潮][社区签到]签到失败 uid: {uid} sign_in_res: {sign_in_res}")
+    logger.warning(f"[库洛签到·鸣潮社区签到] 签到失败 uid: {uid} sign_in_res: {sign_in_res}")
     return False
 
 
@@ -110,7 +110,7 @@ async def do_detail(
 
         await asyncio.sleep(random.uniform(0, 1))
 
-    logger.warning(f"[鸣潮][社区签到]浏览失败 uid: {uid}")
+    logger.warning(f"[库洛签到·鸣潮社区签到] 浏览失败 uid: {uid}")
     return False
 
 
@@ -147,7 +147,7 @@ async def do_like(
 
         await asyncio.sleep(random.uniform(0, 1))
 
-    logger.warning(f"[鸣潮][社区签到]点赞失败 uid: {uid}")
+    logger.warning(f"[库洛签到·鸣潮社区签到] 点赞失败 uid: {uid}")
     return False
 
 
@@ -173,7 +173,7 @@ async def do_share(
         rover_sign.bbs_share = SignStatus.BBS_SHARE
         return True
 
-    logger.exception(f"[鸣潮][社区签到]分享失败 uid: {uid}")
+    logger.exception(f"[库洛签到·鸣潮社区签到] 分享失败 uid: {uid}")
     return False
 
 
@@ -248,7 +248,7 @@ async def do_single_task(uid, token) -> Union[bool, Dict[str, bool]]:
             random.shuffle(post_list)
         if not post_list:
             logger.exception(
-                f"[鸣潮][社区签到]获取帖子列表失败 uid: {uid} res: {form_list_res}"
+                f"[库洛签到·鸣潮社区签到] 获取帖子列表失败 uid: {uid} res: {form_list_res}"
             )
             # 未获取帖子列表
             return False
@@ -314,7 +314,7 @@ async def single_task(
     else:
         return
 
-    logger.debug(f"[鸣潮][社区签到]签到结果 uid: {uid} res: {im}")
+    logger.debug(f"[库洛签到·鸣潮社区签到] 签到结果 uid: {uid} res: {im}")
 
     if gid == "on":
         if qid not in private_msgs:
@@ -502,51 +502,51 @@ async def pgr_sign_in(
     from ..utils.api.api import PGR_GAME_ID
 
     # 先获取角色列表，获取正确的 serverId
-    logger.debug(f"[pgr_sign_in] 调用 find_role_list - uid: {uid}, gameId: {PGR_GAME_ID}")
+    logger.debug(f"[库洛签到·战双签到] 调用 find_role_list - uid: {uid}, gameId: {PGR_GAME_ID}")
     role_list_res = await rover_api.find_role_list(ck, PGR_GAME_ID)
-    logger.debug(f"[pgr_sign_in] find_role_list 返回 - uid: {uid}, success: {role_list_res.success}, code: {role_list_res.code}, msg: {role_list_res.msg}")
+    logger.debug(f"[库洛签到·战双签到] find_role_list 返回 - uid: {uid}, success: {role_list_res.success}, code: {role_list_res.code}, msg: {role_list_res.msg}")
 
     if not role_list_res.success:
-        logger.debug(f"[战双签到] 获取角色列表失败: {role_list_res.msg}")
+        logger.debug(f"[库洛签到·战双签到] 获取角色列表失败: {role_list_res.msg}")
         return None
 
     role_list_data = role_list_res.data
     if role_list_data is None or (isinstance(role_list_data, list) and not role_list_data):
-        logger.debug(f"[战双签到] 角色列表为空")
+        logger.debug(f"[库洛签到·战双签到] 角色列表为空")
         return None
     if not isinstance(role_list_data, list):
-        logger.debug(f"[战双签到] 角色列表数据异常 - data type: {type(role_list_data)}")
+        logger.debug(f"[库洛签到·战双签到] 角色列表数据异常 - data type: {type(role_list_data)}")
         return None
 
-    logger.debug(f"[pgr_sign_in] 角色列表数量: {len(role_list_data)}")
+    logger.debug(f"[库洛签到·战双签到] 角色列表数量: {len(role_list_data)}")
 
     # 查找匹配的角色
     pgr_role = None
     for role in role_list_data:
-        logger.debug(f"[pgr_sign_in] 检查角色 - roleId: {role.get('roleId')}, roleName: {role.get('roleName')}")
+        logger.debug(f"[库洛签到·战双签到] 检查角色 - roleId: {role.get('roleId')}, roleName: {role.get('roleName')}")
         if str(role.get("roleId")) == str(uid):
             pgr_role = role
             break
 
     if not pgr_role:
         logger.debug(
-            f"[战双签到] 未找到匹配的角色 UID: {uid}, 可用角色: {[r.get('roleId') for r in role_list_data]}"
+            f"[库洛签到·战双签到] 未找到匹配的角色 UID: {uid}, 可用角色: {[r.get('roleId') for r in role_list_data]}"
         )
         return None
 
     server_id = pgr_role.get("serverId")
-    logger.info(f"[战双签到] UID: {uid}, serverId: {server_id}, serverName: {pgr_role.get('serverName')}, roleName: {pgr_role.get('roleName')}")
+    logger.info(f"[库洛签到·战双签到] UID: {uid}, serverId: {server_id}, serverName: {pgr_role.get('serverName')}, roleName: {pgr_role.get('roleName')}")
 
     hasSignIn = False
     if not isForce:
         # 获取签到状态
-        logger.debug(f"[pgr_sign_in] 调用 sign_in_task_list 检查签到状态 - pgr_uid: {uid}, gameId: {PGR_GAME_ID}, serverId: {server_id}")
+        logger.debug(f"[库洛签到·战双签到] 调用 sign_in_task_list 检查签到状态 - pgr_uid: {uid}, gameId: {PGR_GAME_ID}, serverId: {server_id}")
         res = await rover_api.sign_in_task_list(uid, ck, gameId=PGR_GAME_ID, serverId=server_id)
-        logger.debug(f"[pgr_sign_in] sign_in_task_list 返回 - success: {res.success}, code: {res.code}, msg: {res.msg}, data: {res.data}")
+        logger.debug(f"[库洛签到·战双签到] sign_in_task_list 返回 - success: {res.success}, code: {res.code}, msg: {res.msg}, data: {res.data}")
 
         if res.success and res.data and isinstance(res.data, dict):
             hasSignIn = res.data.get("isSigIn", False)
-            logger.debug(f"[pgr_sign_in] 已签到状态: {hasSignIn}")
+            logger.debug(f"[库洛签到·战双签到] 已签到状态: {hasSignIn}")
 
         if hasSignIn:
             # 已经签到
@@ -554,23 +554,23 @@ async def pgr_sign_in(
             logger.debug(f"PGR UID{uid} 该用户今日已签到,跳过...")
             return "今日已签到！请勿重复签到！"
 
-    logger.debug(f"[pgr_sign_in] 调用 sign_in 执行签到 - pgr_uid: {uid}, gameId: {PGR_GAME_ID}, serverId: {server_id}")
+    logger.debug(f"[库洛签到·战双签到] 调用 sign_in 执行签到 - pgr_uid: {uid}, gameId: {PGR_GAME_ID}, serverId: {server_id}")
     sign_in_res = await rover_api.sign_in(uid, ck, gameId=PGR_GAME_ID, serverId=server_id)
-    logger.debug(f"[pgr_sign_in] sign_in 返回 - success: {sign_in_res.success}, code: {sign_in_res.code}, msg: {sign_in_res.msg}, data: {sign_in_res.data}")
+    logger.debug(f"[库洛签到·战双签到] sign_in 返回 - success: {sign_in_res.success}, code: {sign_in_res.code}, msg: {sign_in_res.msg}, data: {sign_in_res.data}")
 
     if sign_in_res.success:
         # 签到成功
         await RoverSign.upsert_rover_sign(RoverSignData.build_pgr_game_sign(uid))
-        logger.debug("[pgr_sign_in] 签到成功")
+        logger.debug("[库洛签到·战双签到] 签到成功")
         return "签到成功！"
     elif sign_in_res.code == 1511:
         # 已经签到
         await RoverSign.upsert_rover_sign(RoverSignData.build_pgr_game_sign(uid))
-        logger.debug("[pgr_sign_in] 今日已签到 (code 1511)")
+        logger.debug("[库洛签到·战双签到] 今日已签到 (code 1511)")
         return "今日已签到！请勿重复签到！"
 
     # 签到失败
-    logger.error(f"[战双签到] 签到失败: code={sign_in_res.code}, msg={sign_in_res.msg}, data={sign_in_res.data}")
+    logger.error(f"[库洛签到·战双签到] 签到失败: code={sign_in_res.code}, msg={sign_in_res.msg}, data={sign_in_res.data}")
     return f"签到失败：{sign_in_res.msg}"
 
 
