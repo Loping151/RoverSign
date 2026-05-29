@@ -87,6 +87,7 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         "本地代理地址",
         "本地代理地址",
         "",
+        secret=True,
     ),
     "NeedProxyFunc": GsListStrConfig(
         "需要代理的函数",
