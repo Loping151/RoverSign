@@ -664,17 +664,27 @@ async def to_board_cast_msg(
             messages.append(MessageSegment.text("\n"))
             messages.extend(group_msgs[gid]["push_message"])
 
-        # 优先 RoverSubscribe，然后 WavesSubscribeReader，最后 fallback
+        # bot_id 是平台 ID；bot_self_id 是机器人自身账号，二者不能混用。
+        # 优先读取近期记录的机器人自身账号，兜底兼容旧订阅数据。
         from ..utils.database.rover_subscribe import RoverSubscribe
         bot_self_id = await RoverSubscribe.get_group_bot(gid)
         if not bot_self_id:
             bot_self_id = await WavesSubscribeReader.get_group_bot(gid)
         if not bot_self_id:
-            bot_self_id = group_msgs[gid]["bot_id"]
-            logger.debug(f"[库洛签到·签到] 群 {gid} 未找到绑定，使用 fallback: {bot_self_id}")
+            legacy_bot_id = str(group_msgs[gid].get("bot_id", ""))
+            if legacy_bot_id.isdigit():
+                bot_self_id = legacy_bot_id
+                logger.debug(
+                    f"[库洛签到·签到] 群 {gid} 未找到 bot_self_id，"
+                    f"使用旧广播结构中的数字 bot_id 兜底: {bot_self_id}"
+                )
+            else:
+                logger.warning(f"[库洛签到·签到] 群 {gid} 未找到 bot_self_id，跳过群推送组装")
+                continue
 
         group_msg_dict[gid] = {
-            "bot_id": bot_self_id,
+            "bot_id": group_msgs[gid]["bot_id"],
+            "bot_self_id": bot_self_id,
             "messages": messages,
         }
 
