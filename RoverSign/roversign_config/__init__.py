@@ -16,16 +16,19 @@ PREFIX = get_plugin_available_prefix("RoverSign")
 
 @sv_rover_config.on_prefix(
     ("开启", "关闭"),
-    to_ai="""开启或关闭自己鸣潮账号的每日自动签到任务。
+    to_ai="""开启或关闭自己鸣潮 / 战双账号的每日自动签到任务。
 
-当用户问「开启自动签到 / 开启鸣潮自动签到 / 关闭自动签到 / 帮我开/关自动签到」时调用。
-text 必须是 "自动签到" 或 "鸣潮自动签到"。需绑定 cookie。命令字本身（"开启" / "关闭"）决定开还是关。
+当用户问「开启自动签到 / 开启鸣潮自动签到 / 开启战双自动签到 / 关闭…」时调用。
+text 取 "自动签到" / "鸣潮自动签到"（鸣潮当前 uid，并顺带处理已绑战双）或 "战双自动签到"（仅当前战双 uid）。
+需绑定 cookie。命令字本身（"开启" / "关闭"）决定开还是关。
 
 Args:
-    text: "自动签到" 或 "鸣潮自动签到"。例: command="开启" + text="自动签到"。
+    text: "自动签到" / "鸣潮自动签到" / "战双自动签到"。例: command="开启" + text="自动签到"。
 """,
 )
 async def open_switch_func(bot: Bot, ev: Event):
+    if ev.text == "战双自动签到":
+        return await _handle_pgr_switch(bot, ev)
     if ev.text not in ("自动签到", "鸣潮自动签到"):
         return
 
@@ -92,21 +95,7 @@ async def open_switch_func(bot: Bot, ev: Event):
     await bot.send((" " if at_sender and isinstance(im, str) else "") + im if isinstance(im, str) else im, at_sender)
 
 
-@sv_rover_config.on_prefix(
-    ("开启", "关闭"),
-    to_ai="""开启或关闭自己战双账号的每日自动签到任务（仅作用当前战双特征码）。
-
-当用户问「开启战双自动签到 / 关闭战双自动签到」时调用。
-text 必须是 "战双自动签到"。需绑定战双 cookie。命令字本身（"开启" / "关闭"）决定开还是关。
-
-Args:
-    text: 必须是 "战双自动签到"。例: command="开启" + text="战双自动签到"。
-""",
-)
-async def open_pgr_switch_func(bot: Bot, ev: Event):
-    if ev.text != "战双自动签到":
-        return
-
+async def _handle_pgr_switch(bot: Bot, ev: Event):
     at_sender = True if ev.group_id else False
     pgr_uid = await WavesBind.get_uid_by_game(ev.user_id, ev.bot_id, game_name="pgr")
     if pgr_uid is None:
