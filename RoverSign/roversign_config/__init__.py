@@ -6,7 +6,7 @@ from gsuid_core.sv import SV, get_plugin_available_prefix
 from ..utils.api.api import PGR_GAME_ID, WAVES_GAME_ID
 from ..utils.database.models import WavesBind, WavesUser
 from ..utils.util import get_hide_uid_pref, hide_uid
-from .set_config import set_config_func
+from .set_config import set_config_func, set_pgr_config_func
 
 sv_rover_config = SV("RoverSign配置")
 
@@ -18,15 +18,15 @@ PREFIX = get_plugin_available_prefix("RoverSign")
     ("开启", "关闭"),
     to_ai="""开启或关闭自己鸣潮账号的每日自动签到任务。
 
-当用户问「开启自动签到 / 关闭自动签到 / 帮我开/关自动签到」时调用。
-text 必须是 "自动签到"。需绑定 cookie。命令字本身（"开启" / "关闭"）决定开还是关。
+当用户问「开启自动签到 / 开启鸣潮自动签到 / 关闭自动签到 / 帮我开/关自动签到」时调用。
+text 必须是 "自动签到" 或 "鸣潮自动签到"。需绑定 cookie。命令字本身（"开启" / "关闭"）决定开还是关。
 
 Args:
-    text: 必须是 "自动签到"。例: command="开启" + text="自动签到"。
+    text: "自动签到" 或 "鸣潮自动签到"。例: command="开启" + text="自动签到"。
 """,
 )
 async def open_switch_func(bot: Bot, ev: Event):
-    if ev.text != "自动签到":
+    if ev.text not in ("自动签到", "鸣潮自动签到"):
         return
 
     at_sender = True if ev.group_id else False
@@ -64,6 +64,7 @@ async def open_switch_func(bot: Bot, ev: Event):
     pgr_uid_list = await WavesBind.get_uid_list_by_game(
         ev.user_id, ev.bot_id, game_name="pgr"
     )
+    pgr_done = False
     if pgr_uid_list:
         if "开启" in ev.command:
             option = ev.group_id if ev.group_id else "on"
@@ -80,9 +81,40 @@ async def open_switch_func(bot: Bot, ev: Event):
                     sign_switch=option,
                     bbs_sign_switch=option,
                 )
+                pgr_done = True
                 logger.info(
                     f"[库洛签到·配置] user_id={ev.user_id} 战双UID[{pgr_uid}]已[{ev.command[0:2]}]自动签到"
                 )
 
+    im = im.rstrip("\n") if isinstance(im, str) else im
+    if pgr_done and isinstance(im, str):
+        im = f"{im}\n已{'关闭' if '关闭' in ev.command else '开启'}战双自动签到"
+    await bot.send((" " if at_sender and isinstance(im, str) else "") + im if isinstance(im, str) else im, at_sender)
+
+
+@sv_rover_config.on_prefix(
+    ("开启", "关闭"),
+    to_ai="""开启或关闭自己战双账号的每日自动签到任务（仅作用当前战双特征码）。
+
+当用户问「开启战双自动签到 / 关闭战双自动签到」时调用。
+text 必须是 "战双自动签到"。需绑定战双 cookie。命令字本身（"开启" / "关闭"）决定开还是关。
+
+Args:
+    text: 必须是 "战双自动签到"。例: command="开启" + text="战双自动签到"。
+""",
+)
+async def open_pgr_switch_func(bot: Bot, ev: Event):
+    if ev.text != "战双自动签到":
+        return
+
+    at_sender = True if ev.group_id else False
+    pgr_uid = await WavesBind.get_uid_by_game(ev.user_id, ev.bot_id, game_name="pgr")
+    if pgr_uid is None:
+        msg = "您还未绑定战双特征码！"
+        return await bot.send((" " if at_sender else "") + msg, at_sender)
+
+    logger.info(f"[库洛签到·配置] user_id={ev.user_id} 尝试[{ev.command[0:2]}]了[{ev.text}]功能")
+
+    im = await set_pgr_config_func(ev, pgr_uid)
     im = im.rstrip("\n") if isinstance(im, str) else im
     await bot.send((" " if at_sender and isinstance(im, str) else "") + im if isinstance(im, str) else im, at_sender)
