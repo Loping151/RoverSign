@@ -32,6 +32,8 @@ async def open_switch_func(bot: Bot, ev: Event):
     if ev.text not in ("自动签到", "鸣潮自动签到"):
         return
 
+    ev.text = "鸣潮自动签到"
+
     at_sender = True if ev.group_id else False
     uid = await WavesBind.get_uid_by_game(ev.user_id, ev.bot_id)
     if uid is None:
