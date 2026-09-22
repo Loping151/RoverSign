@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import and_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from gsuid_core.utils.database.base_models import BaseModel, with_session
+from gsuid_core.utils.database.base_models import BaseModel, with_read_session, with_session
 from gsuid_core.utils.database.models import Subscribe
 
 from ._lock import with_lock
@@ -30,9 +30,33 @@ class RoverSubscribe(BaseModel, table=True):
     updated_at: Optional[int] = Field(default=None, title="最后更新时间")
 
     @classmethod
+    @with_read_session
+    async def _binding(
+        cls: Type[T_RoverSubscribe],
+        session: AsyncSession,
+        group_id: str,
+    ) -> tuple[str, str] | None:
+        sql = select(cls).where(cls.group_id == group_id)
+        record = (await session.execute(sql)).scalars().first()
+        if record is None:
+            return None
+        return record.bot_id, record.bot_self_id
+
+    @classmethod
+    async def check_and_update_bot(
+        cls: Type[T_RoverSubscribe],
+        group_id: str,
+        bot_id: str,
+        bot_self_id: str,
+    ) -> bool:
+        if await cls._binding(group_id) == (bot_id, bot_self_id):
+            return False
+        return await cls._apply_bot_change(group_id, bot_id, bot_self_id)
+
+    @classmethod
     @with_lock
     @with_session
-    async def check_and_update_bot(
+    async def _apply_bot_change(
         cls: Type[T_RoverSubscribe],
         session: AsyncSession,
         group_id: str,
@@ -132,7 +156,7 @@ class RoverSubscribe(BaseModel, table=True):
             return False
 
     @classmethod
-    @with_session
+    @with_read_session
     async def get_group_bot(
         cls: Type[T_RoverSubscribe],
         session: AsyncSession,
@@ -159,7 +183,7 @@ class WavesSubscribeReader(BaseModel, table=True):
     updated_at: Optional[int] = Field(default=None, title="最后更新时间")
 
     @classmethod
-    @with_session
+    @with_read_session
     async def get_group_bot(
         cls: Type[T_WavesSubscribeReader],
         session: AsyncSession,

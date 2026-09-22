@@ -1,4 +1,4 @@
-from typing import Any, Dict, Set, Type, TypeVar, Optional
+from typing import Any, Dict, List, Set, Type, TypeVar, Optional
 from contextvars import ContextVar
 
 from sqlmodel import Field, select
@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import and_
 
 from gsuid_core.logger import logger
-from gsuid_core.utils.database.base_models import BaseBotIDModel, with_session
+from gsuid_core.utils.database.base_models import BaseBotIDModel, with_read_session, with_session
 
 from ._lock import with_lock
 
@@ -78,6 +78,16 @@ class RoverGroupActivity(BaseBotIDModel, table=True):
         return True
 
     @classmethod
+    @with_session
+    async def update_many(
+        cls: Type[T_RoverGroupActivity],
+        _session: AsyncSession,
+        rows: List[tuple[str, str, str]],
+    ) -> None:
+        for group_id, bot_id, bot_self_id in rows:
+            await cls._do_update_group_activity(group_id, bot_id, bot_self_id)
+
+    @classmethod
     async def get_active_group_ids(
         cls: Type[T_RoverGroupActivity],
         active_days: int,
@@ -91,7 +101,7 @@ class RoverGroupActivity(BaseBotIDModel, table=True):
             raise
 
     @classmethod
-    @with_session
+    @with_read_session
     async def _do_get_active_group_ids(
         cls: Type[T_RoverGroupActivity],
         session: AsyncSession,

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 from sqlmodel import Field, select
 from sqlalchemy import update
@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import and_
 
 from gsuid_core.logger import logger
-from gsuid_core.utils.database.base_models import BaseBotIDModel, with_session
+from gsuid_core.utils.database.base_models import BaseBotIDModel, with_read_session, with_session
 
 from ._lock import with_lock
 
@@ -82,6 +82,16 @@ class RoverUserActivity(BaseBotIDModel, table=True):
         return True
 
     @classmethod
+    @with_session
+    async def update_many(
+        cls: Type[T_RoverUserActivity],
+        _session: AsyncSession,
+        rows: List[tuple[str, str, str]],
+    ) -> None:
+        for user_id, bot_id, bot_self_id in rows:
+            await cls._do_update_user_activity(user_id, bot_id, bot_self_id)
+
+    @classmethod
     async def get_user_last_active_time(
         cls: Type[T_RoverUserActivity],
         user_id: str,
@@ -98,7 +108,7 @@ class RoverUserActivity(BaseBotIDModel, table=True):
             raise
 
     @classmethod
-    @with_session
+    @with_read_session
     async def _do_get_user_last_active_time(
         cls: Type[T_RoverUserActivity],
         session: AsyncSession,
@@ -132,7 +142,7 @@ class RoverUserActivity(BaseBotIDModel, table=True):
             raise
 
     @classmethod
-    @with_session
+    @with_read_session
     async def _do_get_active_user_count(
         cls: Type[T_RoverUserActivity],
         session: AsyncSession,
@@ -155,7 +165,7 @@ class RoverUserActivity(BaseBotIDModel, table=True):
         return len(data)
 
     @classmethod
-    @with_session
+    @with_read_session
     async def is_user_active(
         cls: Type[T_RoverUserActivity],
         session: AsyncSession,
