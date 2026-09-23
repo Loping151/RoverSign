@@ -12,9 +12,16 @@ from ..utils.util import get_hide_uid_pref, hide_uid
 async def get_signin_config():
     from .roversign_config import RoverSignConfig
 
-    master = RoverSignConfig.get_config("SigninMaster").data
-    signin = RoverSignConfig.get_config("SchedSignin").data
-    return master or signin
+    # This switch controls whether users may manage their own Waves
+    # sign-in setting.  It is distinct from SchedSignin, which controls
+    # the scheduler itself.
+    return RoverSignConfig.get_config("UserWavesSignin").data
+
+
+async def get_pgr_signin_config():
+    from .roversign_config import RoverSignConfig
+
+    return RoverSignConfig.get_config("UserPGRSignin").data
 
 
 async def get_bbs_signin_config():
@@ -88,7 +95,7 @@ async def set_pgr_config_func(ev: Event, pgr_uid: str = "0"):
     else:
         option = "off"
 
-    if not await get_signin_config():
+    if not await get_pgr_signin_config():
         return "自动签到功能已禁用!\n"
 
     pgr_user = await WavesUser.select_waves_user(
