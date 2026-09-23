@@ -1,14 +1,14 @@
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
 from sqlmodel import Field, select
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import and_
 
 from gsuid_core.logger import logger
-from gsuid_core.utils.database.base_models import BaseBotIDModel, with_read_session, with_session
+from gsuid_core.utils.database.base_models import BaseBotIDModel
 
 from ._lock import with_lock
+from ._session import with_read_session, with_session
 
 T_RoverUserActivity = TypeVar("T_RoverUserActivity", bound="RoverUserActivity")
 
@@ -53,6 +53,26 @@ class RoverUserActivity(BaseBotIDModel, table=True):
         bot_id: str,
         bot_self_id: str,
     ) -> bool:
+        return await cls._touch(session, user_id, bot_id, bot_self_id)
+
+    @classmethod
+    @with_session
+    async def update_many(
+        cls: Type[T_RoverUserActivity],
+        session: AsyncSession,
+        rows: List[tuple[str, str, str]],
+    ) -> None:
+        for user_id, bot_id, bot_self_id in rows:
+            await cls._touch(session, user_id, bot_id, bot_self_id)
+
+    @classmethod
+    async def _touch(
+        cls: Type[T_RoverUserActivity],
+        session: AsyncSession,
+        user_id: str,
+        bot_id: str,
+        bot_self_id: str,
+    ) -> bool:
         import time
 
         current_time = int(time.time())
@@ -80,16 +100,6 @@ class RoverUserActivity(BaseBotIDModel, table=True):
             session.add(new_record)
 
         return True
-
-    @classmethod
-    @with_session
-    async def update_many(
-        cls: Type[T_RoverUserActivity],
-        _session: AsyncSession,
-        rows: List[tuple[str, str, str]],
-    ) -> None:
-        for user_id, bot_id, bot_self_id in rows:
-            await cls._do_update_user_activity(user_id, bot_id, bot_self_id)
 
     @classmethod
     async def get_user_last_active_time(

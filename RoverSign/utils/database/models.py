@@ -11,13 +11,13 @@ from gsuid_core.utils.database.base_models import (
     User,
     BaseIDModel,
     with_session,
-    with_read_session,
 )
 
 from ..util import get_today_date
+from ._session import with_read_session
 from ._lock import with_lock
 from .rover_user_activity import RoverUserActivity
-from .rover_group_activity import RoverGroupActivity
+from .rover_group_activity import RoverGroupActivity  # noqa: F401
 from .rover_subscribe import RoverSubscribe
 
 from gsuid_core.server import on_core_start

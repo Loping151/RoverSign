@@ -23,32 +23,45 @@ try:
 
     logger.info("[库洛签到·插件] bot_send_hook 导入成功")
 
-    # ===== 活跃度批量写入缓冲 =====
+    # ===== 活跃度 / Bot 绑定批量写入缓冲 =====
     _activity_buffer: dict[str, tuple[str, str, str]] = {}
     _group_activity_buffer: dict[str, tuple[str, str, str]] = {}
+    _bot_buffer: dict[str, tuple[str, str]] = {}
+    _bot_cache: dict[str, tuple[str, str]] = {}
     _FLUSH_INTERVAL = 60
-    _ACTIVITY_CHUNK = 400
+    _FLUSH_CHUNK = 200
+
+    async def _flush_rows(buffer: dict, writer, label: str):
+        if not buffer:
+            return
+        items = list(buffer.items())
+        buffer.clear()
+        for start in range(0, len(items), _FLUSH_CHUNK):
+            chunk = items[start : start + _FLUSH_CHUNK]
+            try:
+                await writer([row for _, row in chunk])
+            except Exception as e:
+                for key, row in chunk:
+                    buffer.setdefault(key, row)
+                logger.warning(f"[库洛签到·插件] {label}写入失败, 下轮重试: {e}")
+
+    async def _flush_bot_buffer():
+        if not _bot_buffer:
+            return
+        items = list(_bot_buffer.items())
+        _bot_buffer.clear()
+        for group_id, (bot_id, bot_self_id) in items:
+            try:
+                await RoverSubscribe.check_and_update_bot(group_id, bot_id, bot_self_id)
+                _bot_cache[group_id] = (bot_id, bot_self_id)
+            except Exception as e:
+                _bot_buffer.setdefault(group_id, (bot_id, bot_self_id))
+                logger.warning(f"[库洛签到·Hook] Bot检测失败, 下轮重试: {e}")
 
     async def _flush_activity_buffer():
-        if _activity_buffer:
-            pending = list(_activity_buffer.values())
-            _activity_buffer.clear()
-            for start in range(0, len(pending), _ACTIVITY_CHUNK):
-                chunk = pending[start : start + _ACTIVITY_CHUNK]
-                try:
-                    await RoverUserActivity.update_many(chunk)
-                except Exception as e:
-                    logger.warning(f"[库洛签到·插件] 批量活跃度写入失败: {e}")
-
-        if _group_activity_buffer:
-            group_pending = list(_group_activity_buffer.values())
-            _group_activity_buffer.clear()
-            for start in range(0, len(group_pending), _ACTIVITY_CHUNK):
-                chunk = group_pending[start : start + _ACTIVITY_CHUNK]
-                try:
-                    await RoverGroupActivity.update_many(chunk)
-                except Exception as e:
-                    logger.warning(f"[库洛签到·插件] 批量群活跃度写入失败: {e}")
+        await _flush_rows(_activity_buffer, RoverUserActivity.update_many, "活跃度")
+        await _flush_rows(_group_activity_buffer, RoverGroupActivity.update_many, "群活跃度")
+        await _flush_bot_buffer()
 
     _shutdown_event = asyncio.Event()
 
@@ -82,11 +95,13 @@ try:
         """RoverSign 的 bot 检测 hook"""
         logger.debug(f"[库洛签到·Hook] bot_check_hook 被调用: group_id={group_id}, bot_id={bot_id}, bot_self_id={bot_self_id}")
 
-        if group_id:
-            try:
-                await RoverSubscribe.check_and_update_bot(group_id, bot_id, bot_self_id)
-            except Exception as e:
-                logger.warning(f"[库洛签到·Hook] Bot检测失败: {e}")
+        if not group_id:
+            return
+        bot = (bot_id, bot_self_id)
+        if _bot_cache.get(group_id) == bot:
+            _bot_buffer.pop(group_id, None)
+        else:
+            _bot_buffer[group_id] = bot
 
     async def rover_user_activity_hook(user_id: str, bot_id: str, bot_self_id: str):
         """RoverSign 的用户活跃度 hook - 写入缓冲区，定时批量刷写"""

@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import and_
 
 from gsuid_core.logger import logger
-from gsuid_core.utils.database.base_models import BaseBotIDModel, with_read_session, with_session
+from gsuid_core.utils.database.base_models import BaseBotIDModel
 
 from ._lock import with_lock
+from ._session import with_read_session, with_session
 
 # 推送期间置位, 用户/群活跃 hook 据此跳过推送自身
 PUSH_GUARD: ContextVar[bool] = ContextVar("rover_push_guard", default=False)
@@ -51,6 +52,26 @@ class RoverGroupActivity(BaseBotIDModel, table=True):
         bot_id: str,
         bot_self_id: str,
     ) -> bool:
+        return await cls._touch(session, group_id, bot_id, bot_self_id)
+
+    @classmethod
+    @with_session
+    async def update_many(
+        cls: Type[T_RoverGroupActivity],
+        session: AsyncSession,
+        rows: List[tuple[str, str, str]],
+    ) -> None:
+        for group_id, bot_id, bot_self_id in rows:
+            await cls._touch(session, group_id, bot_id, bot_self_id)
+
+    @classmethod
+    async def _touch(
+        cls: Type[T_RoverGroupActivity],
+        session: AsyncSession,
+        group_id: str,
+        bot_id: str,
+        bot_self_id: str,
+    ) -> bool:
         import time
 
         current_time = int(time.time())
@@ -76,16 +97,6 @@ class RoverGroupActivity(BaseBotIDModel, table=True):
                 )
             )
         return True
-
-    @classmethod
-    @with_session
-    async def update_many(
-        cls: Type[T_RoverGroupActivity],
-        _session: AsyncSession,
-        rows: List[tuple[str, str, str]],
-    ) -> None:
-        for group_id, bot_id, bot_self_id in rows:
-            await cls._do_update_group_activity(group_id, bot_id, bot_self_id)
 
     @classmethod
     async def get_active_group_ids(

@@ -6,10 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import and_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from gsuid_core.utils.database.base_models import BaseModel, with_read_session, with_session
+from gsuid_core.utils.database.base_models import BaseModel
 from gsuid_core.utils.database.models import Subscribe
 
 from ._lock import with_lock
+from ._session import with_read_session, with_session
 
 T_RoverSubscribe = TypeVar("T_RoverSubscribe", bound="RoverSubscribe")
 T_WavesSubscribeReader = TypeVar("T_WavesSubscribeReader", bound="WavesSubscribeReader")
