@@ -11,6 +11,7 @@ from gsuid_core.utils.database.base_models import (
     User,
     BaseIDModel,
     with_session,
+    with_read_session,
 )
 
 from ..util import get_today_date
@@ -364,7 +365,7 @@ class RoverSign(BaseIDModel, table=True):
         return result
 
     @classmethod
-    @with_session
+    @with_read_session
     async def get_sign_data(
         cls: Type[T_RoverSign],
         session: AsyncSession,
@@ -376,7 +377,7 @@ class RoverSign(BaseIDModel, table=True):
         return await cls._find_sign_record(session, uid, date)
 
     @classmethod
-    @with_session
+    @with_read_session
     async def get_all_sign_data_by_date(
         cls: Type[T_RoverSign],
         session: AsyncSession,

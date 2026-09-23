@@ -27,23 +27,26 @@ try:
     _activity_buffer: dict[str, tuple[str, str, str]] = {}
     _group_activity_buffer: dict[str, tuple[str, str, str]] = {}
     _FLUSH_INTERVAL = 60
+    _ACTIVITY_CHUNK = 400
 
     async def _flush_activity_buffer():
         if _activity_buffer:
-            pending = dict(_activity_buffer)
+            pending = list(_activity_buffer.values())
             _activity_buffer.clear()
-            for key, (user_id, bot_id, bot_self_id) in pending.items():
+            for start in range(0, len(pending), _ACTIVITY_CHUNK):
+                chunk = pending[start : start + _ACTIVITY_CHUNK]
                 try:
-                    await RoverUserActivity.update_user_activity(user_id, bot_id, bot_self_id)
+                    await RoverUserActivity.update_many(chunk)
                 except Exception as e:
                     logger.warning(f"[库洛签到·插件] 批量活跃度写入失败: {e}")
 
         if _group_activity_buffer:
-            group_pending = dict(_group_activity_buffer)
+            group_pending = list(_group_activity_buffer.values())
             _group_activity_buffer.clear()
-            for key, (group_id, bot_id, bot_self_id) in group_pending.items():
+            for start in range(0, len(group_pending), _ACTIVITY_CHUNK):
+                chunk = group_pending[start : start + _ACTIVITY_CHUNK]
                 try:
-                    await RoverGroupActivity.update_group_activity(group_id, bot_id, bot_self_id)
+                    await RoverGroupActivity.update_many(chunk)
                 except Exception as e:
                     logger.warning(f"[库洛签到·插件] 批量群活跃度写入失败: {e}")
 
