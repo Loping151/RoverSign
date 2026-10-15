@@ -51,29 +51,32 @@ async def rover_auto_sign():
 
     try:
         msg = await rover_auto_sign_task()
-        subscribes = await gs_subscribe.get_subscribe(BoardcastTypeEnum.SIGN_RESULT)
-        if subscribes:
-            logger.info(f"[库洛签到·签到] 推送主人签到结果: {msg}")
-            from ..utils.database.rover_subscribe import RoverSubscribe
-            from ..utils.database.rover_group_activity import PUSH_GUARD
-            for sub in subscribes:
-                # 对 group 订阅，用 RoverSubscribe 获取最新 bot_self_id
-                if sub.user_type == "group" and sub.group_id:
-                    latest_bot = await RoverSubscribe.get_group_bot(sub.group_id)
-                    if latest_bot and latest_bot != sub.bot_self_id:
-                        logger.info(
-                            f"[库洛签到·签到] 更新订阅 bot_self_id: "
-                            f"{sub.bot_self_id} -> {latest_bot}"
-                        )
-                        sub.bot_self_id = latest_bot
-                token = PUSH_GUARD.set(True)
-                try:
-                    await sub.send(msg)
-                finally:
-                    PUSH_GUARD.reset(token)
-    finally:
-        # 签到完成，清除状态文件
+    except Exception:
         signing_state.clear_state()
+        raise
+    # 签到完成，清除状态文件
+    signing_state.clear_state()
+
+    subscribes = await gs_subscribe.get_subscribe(BoardcastTypeEnum.SIGN_RESULT)
+    if subscribes:
+        logger.info(f"[库洛签到·签到] 推送主人签到结果: {msg}")
+        from ..utils.database.rover_subscribe import RoverSubscribe
+        from ..utils.database.rover_group_activity import PUSH_GUARD
+        for sub in subscribes:
+            # 对 group 订阅，用 RoverSubscribe 获取最新 bot_self_id
+            if sub.user_type == "group" and sub.group_id:
+                latest_bot = await RoverSubscribe.get_group_bot(sub.group_id)
+                if latest_bot and latest_bot != sub.bot_self_id:
+                    logger.info(
+                        f"[库洛签到·签到] 更新订阅 bot_self_id: "
+                        f"{sub.bot_self_id} -> {latest_bot}"
+                    )
+                    sub.bot_self_id = latest_bot
+            token = PUSH_GUARD.set(True)
+            try:
+                await sub.send(msg)
+            finally:
+                PUSH_GUARD.reset(token)
 
 async def rover_auto_sign_1():
     await rover_auto_sign()
@@ -149,11 +152,13 @@ async def rover_sign_recheck_all(bot: Bot, ev: Event):
     await bot.send("[RoverSign] [全部签到] 已开始执行!")
     try:
         msg = await rover_auto_sign_task()
-        await bot.send("[RoverSign] [全部签到] 执行完成!")
-        await bot.send(msg)
-    finally:
-        # 签到完成，清除状态文件
+    except Exception:
         signing_state.clear_state()
+        raise
+    # 签到完成，清除状态文件
+    signing_state.clear_state()
+    await bot.send("[RoverSign] [全部签到] 执行完成!")
+    await bot.send(msg)
 
 
 @waves_sign_all.on_regex(("^(订阅|取消订阅)签到结果$"))
@@ -207,9 +212,9 @@ async def check_and_resume_signing():
                 signing_state.set_state("manual")
                 msg = await rover_auto_sign_task()
                 logger.info(f"[库洛签到·签到] 恢复的全部签到已完成: {msg}")
+                signing_state.clear_state()
         except Exception as e:
             logger.error(f"[库洛签到·签到] 恢复签到任务时出错: {e}")
-        finally:
             signing_state.clear_state()
 
 
