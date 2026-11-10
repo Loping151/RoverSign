@@ -10,39 +10,45 @@ from gsuid_core.utils.plugins_config.models import (
 
 CONFIG_DEFAULT: Dict[str, GSC] = {
     "UserWavesSignin": GsBoolConfig(
-        "用户鸣潮游戏签到开关",
-        "用户鸣潮游戏签到开关",
+        "手动签到：鸣潮",
+        "用户发送「签到」时签到鸣潮",
         False,
     ),
     "UserPGRSignin": GsBoolConfig(
-        "用户战双游戏签到开关",
-        "用户战双游戏签到开关",
+        "手动签到：战双",
+        "用户发送「签到」时签到战双",
         False,
     ),
     "UserBBSSchedSignin": GsBoolConfig(
-        "用户库街区每日任务开关",
-        "用户库街区每日任务开关",
-        False,
-    ),
-    "SigninMaster": GsBoolConfig(
-        "全部开启签到",
-        "开启后自动帮登录的人签到",
-        False,
-    ),
-    "SigninMasterSkipInactive": GsBoolConfig(
-        "全部签到时跳过不活跃账号",
-        "开启「全部开启签到」时，仍跳过不活跃账号（依赖活跃账号认定天数）",
+        "手动签到：库街区任务",
+        "用户发送「签到」时完成库街区任务",
         False,
     ),
     "SchedSignin": GsBoolConfig(
-        "定时签到",
-        "定时签到",
+        "自动签到：游戏",
+        "每天定时为「开启自动签到」的用户签到游戏",
         False,
     ),
     "BBSSchedSignin": GsBoolConfig(
-        "定时库街区每日任务",
-        "定时库街区每日任务",
+        "自动签到：库街区任务",
+        "每天定时为「开启自动签到」的用户完成库街区任务",
         False,
+    ),
+    "SigninMaster": GsBoolConfig(
+        "自动签到：全部账号",
+        "无需用户开启，每天定时为所有已登录账号签到游戏并完成库街区任务",
+        False,
+    ),
+    "SigninMasterSkipInactive": GsBoolConfig(
+        "全部账号签到时跳过不活跃账号",
+        "依赖「活跃账号认定天数」",
+        False,
+    ),
+    "SchedSigninGame": GsListStrConfig(
+        "自动签到的游戏",
+        "自动签到包含的游戏，取消勾选后不再自动签到该游戏",
+        ["鸣潮", "战双"],
+        options=["鸣潮", "战双"],
     ),
     "BBSLink": GsListStrConfig(
         "库街区任务列表",
@@ -56,8 +62,8 @@ CONFIG_DEFAULT: Dict[str, GSC] = {
         ],
     ),
     "SignTime": GsListStrConfig(
-        "每晚签到时间设置",
-        "每晚库街区签到时间设置（时，分）",
+        "自动签到时间",
+        "每天开始自动签到的时间（时，分）",
         ["3", "0"],
     ),
     "SigninConcurrentNum": GsIntConfig(

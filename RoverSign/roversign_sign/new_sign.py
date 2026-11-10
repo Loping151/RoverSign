@@ -30,6 +30,7 @@ from .main import (
     get_bbs_link_config,
     get_sign_interval,
     pgr_sign_in,
+    push_failed_msg,
     sign_in,
     single_daily_sign,
     single_pgr_daily_sign,
@@ -404,10 +405,13 @@ async def rover_auto_sign_task():
     pgr_sign_user = set()
     bbs_link_config = get_bbs_link_config()
     _token_dict: Dict[str, list[str]] = {}
+    auto_games = RoverSignConfig.get_config("SchedSigninGame").data
+    auto_waves = "鸣潮" in auto_games
+    auto_pgr = "战双" in auto_games
     if (
         RoverSignConfig.get_config("BBSSchedSignin").data
         or RoverSignConfig.get_config("SchedSignin").data
-        or RoverSignConfig.get_config("UserPGRSignin").data
+        or RoverSignConfig.get_config("SigninMaster").data
     ):
         # 获取所有用户（SigninMaster 和定时任务都需要）
         _all_user_list: List[WavesUser] = await WavesUser.get_waves_all_user()
@@ -469,14 +473,20 @@ async def rover_auto_sign_task():
                     and user.uid not in _active_user_set
                 ):
                     continue
-                need_user_list.append(user)
+                is_need = not is_signed_bbs
                 if not is_signed_bbs:
                     bbs_user.add(user.uid)
                 # 根据 game_id 判断加入哪个游戏签到列表
                 if user.game_id == WAVES_GAME_ID and not is_signed_waves_game:
-                    waves_sign_user.add(user.uid)
+                    if auto_waves:
+                        waves_sign_user.add(user.uid)
+                        is_need = True
                 elif user.game_id == PGR_GAME_ID and not is_signed_pgr_game:
-                    pgr_sign_user.add(user.uid)
+                    if auto_pgr:
+                        pgr_sign_user.add(user.uid)
+                        is_need = True
+                if is_need:
+                    need_user_list.append(user)
                 continue
 
             # 定时任务：判断是否开启了活跃过滤
@@ -493,10 +503,15 @@ async def rover_auto_sign_task():
             if user.sign_switch != "off":
                 # 如果 sign_switch 不为 'off'，根据 game_id 判断加入哪个游戏签到列表
                 if user.game_id == WAVES_GAME_ID:
-                    waves_sign_user.add(user.uid)
+                    if auto_waves:
+                        waves_sign_user.add(user.uid)
+                        is_need = True
                 elif user.game_id == PGR_GAME_ID:
-                    pgr_sign_user.add(user.uid)
-                is_need = True
+                    if auto_pgr:
+                        pgr_sign_user.add(user.uid)
+                        is_need = True
+                else:
+                    is_need = True
 
             if is_need:
                 need_user_list.append(user)
@@ -518,6 +533,19 @@ async def rover_auto_sign_task():
 
     _USER_TIMEOUT = 120  # 单个用户签到超时（秒）
 
+    def _report_request_failed(user: WavesUser, res, gid: str, bot_self):
+        if res.is_token_invalid or res.is_bat_token_invalid:
+            return
+        im = f"签到失败：{res.throw_msg()}"
+        if user.uid in pgr_sign_user:
+            targets = (private_pgr_sign_msgs, group_pgr_sign_msgs, all_pgr_sign_msgs)
+            im = f"[战双] {im}"
+        elif user.uid in waves_sign_user:
+            targets = (private_waves_sign_msgs, group_waves_sign_msgs, all_waves_sign_msgs)
+        else:
+            targets = (private_bbs_msgs, group_bbs_msgs, all_bbs_msgs)
+        push_failed_msg(user.bot_id, user.uid, gid, user.user_id, im, *targets, bot_self)
+
     async def _process_user_inner(user: WavesUser):
         await asyncio.sleep(random.random() * 1.5)
         if user.cookie == "":
@@ -537,6 +565,7 @@ async def rover_auto_sign_task():
                     user.cookie = waves_user.cookie
             else:
                 await login_res.mark_cookie_invalid(user.uid, user.cookie)
+                _report_request_failed(user, login_res, report_gid, report_bot_self)
             return
 
         refresh_res = await rover_api.refresh_data(user.uid, user.cookie, game_id=user_game_id)
@@ -546,6 +575,7 @@ async def rover_auto_sign_task():
                     user.cookie = waves_user.cookie
             else:
                 await refresh_res.mark_cookie_invalid(user.uid, user.cookie)
+                _report_request_failed(user, refresh_res, report_gid, report_bot_self)
             return
 
         await asyncio.sleep(random.randint(1, 2))

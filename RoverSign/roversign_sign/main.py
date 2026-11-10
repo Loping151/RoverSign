@@ -304,6 +304,34 @@ def _ensure_group_entry(
         group_msgs[gid]["bot_self_id"] = report_bot_self_id
 
 
+def push_failed_msg(
+    bot_id: str,
+    uid: str,
+    gid: str,
+    qid: str,
+    im: str,
+    private_msgs: Dict,
+    group_msgs: Dict,
+    all_msgs: Dict,
+    report_bot_self_id: Optional[str] = None,
+):
+    all_msgs["failed"] += 1
+    if gid == "on":
+        private_msgs.setdefault(qid, []).append(
+            {"bot_id": bot_id, "uid": uid, "msg": [MessageSegment.text(im)]}
+        )
+    elif gid != "off":
+        _ensure_group_entry(group_msgs, gid, bot_id, report_bot_self_id)
+        group_msgs[gid]["failed"] += 1
+        group_msgs[gid]["push_message"].extend(
+            [
+                MessageSegment.text("\n"),
+                MessageSegment.at(qid),
+                MessageSegment.text(im),
+            ]
+        )
+
+
 async def single_task(
     bot_id: str,
     uid: str,

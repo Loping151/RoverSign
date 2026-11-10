@@ -6,7 +6,7 @@ from gsuid_core.sv import SV, get_plugin_available_prefix
 from ..utils.api.api import PGR_GAME_ID, WAVES_GAME_ID
 from ..utils.database.models import WavesBind, WavesUser
 from ..utils.util import get_hide_uid_pref, hide_uid
-from .set_config import set_config_func, set_pgr_config_func
+from .set_config import is_auto_game_enabled, set_config_func, set_pgr_config_func
 
 sv_rover_config = SV("RoverSign配置")
 
@@ -75,6 +75,8 @@ async def open_switch_func(bot: Bot, ev: Event):
             option = ev.group_id if ev.group_id else "on"
         else:
             option = "off"
+        if option != "off" and not is_auto_game_enabled("战双"):
+            pgr_uid_list = []
         for pgr_uid in pgr_uid_list:
             pgr_user = await WavesUser.select_waves_user(
                 pgr_uid, ev.user_id, ev.bot_id, game_id=PGR_GAME_ID

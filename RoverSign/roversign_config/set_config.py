@@ -12,18 +12,17 @@ from ..utils.util import get_hide_uid_pref, hide_uid
 async def get_signin_config():
     from .roversign_config import RoverSignConfig
 
-    master = RoverSignConfig.get_config("SigninMaster").data
-    signin = RoverSignConfig.get_config("SchedSignin").data
-    return master or signin
+    return (
+        RoverSignConfig.get_config("SigninMaster").data
+        or RoverSignConfig.get_config("SchedSignin").data
+        or RoverSignConfig.get_config("BBSSchedSignin").data
+    )
 
 
-async def get_bbs_signin_config():
+def is_auto_game_enabled(game: str) -> bool:
     from .roversign_config import RoverSignConfig
 
-    master = RoverSignConfig.get_config("SigninMaster").data
-    signin = RoverSignConfig.get_config("BBSSchedSignin").data
-
-    return master or signin
+    return game in RoverSignConfig.get_config("SchedSigninGame").data
 
 
 async def set_config_func(ev: Event, uid: str = "0"):
@@ -88,8 +87,10 @@ async def set_pgr_config_func(ev: Event, pgr_uid: str = "0"):
     else:
         option = "off"
 
-    if not await get_signin_config():
-        return "自动签到功能已禁用!\n"
+    if not await get_signin_config() or (
+        option != "off" and not is_auto_game_enabled("战双")
+    ):
+        return "战双自动签到功能已禁用!\n"
 
     pgr_user = await WavesUser.select_waves_user(
         pgr_uid, ev.user_id, ev.bot_id, game_id=PGR_GAME_ID
