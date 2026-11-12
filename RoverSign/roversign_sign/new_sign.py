@@ -646,7 +646,7 @@ async def rover_auto_sign_task():
             logger.info(f"[库洛签到·自动] UID {first.uid} 签到任务完成")
 
     if not jobs:
-        return "暂无需要签到的账号"
+        return "[库洛]自动任务\n没有需要签到的账号"
 
     logger.info(
         f"[库洛签到·签到] 本轮待处理账号：{len(jobs)}，"
@@ -723,6 +723,9 @@ async def rover_auto_sign_task():
 
     if all_bbs_msgs['success'] > 0:
         msg_parts.append(f"今日社区签到 {all_bbs_msgs['success']} 个账号")
+
+    if len(msg_parts) == 1:
+        msg_parts.append("没有需要签到的账号")
 
     return "\n".join(msg_parts)
 
