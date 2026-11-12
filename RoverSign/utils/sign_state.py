@@ -21,14 +21,32 @@ SignType = Literal["auto", "manual"]  # auto=自动签到, manual=全部签到
 _HOLDER = "_roversign_runtime"
 
 
+def _holder() -> types.ModuleType:
+    return sys.modules.setdefault(_HOLDER, types.ModuleType(_HOLDER))
+
+
 def get_run_lock() -> asyncio.Lock:
     """全局签到锁，挂在 sys.modules 上，插件重载后仍是同一把"""
-    holder = sys.modules.setdefault(_HOLDER, types.ModuleType(_HOLDER))
+    holder = _holder()
     lock = getattr(holder, "run_lock", None)
     if lock is None:
         lock = asyncio.Lock()
         setattr(holder, "run_lock", lock)
     return lock
+
+
+def get_run_day() -> str:
+    """当前持锁那一轮的开始日期"""
+    return getattr(_holder(), "run_day", "")
+
+
+def set_run_day(day: str):
+    setattr(_holder(), "run_day", day)
+
+
+def reset_run_lock():
+    """丢弃旧锁换一把新的，旧持有者释放的是旧锁，不影响新一轮"""
+    setattr(_holder(), "run_lock", asyncio.Lock())
 
 
 class SigningState:

@@ -11,7 +11,14 @@ from ..utils.database.models import RoverSign
 from typing import Optional
 
 from ..utils.util import get_today_date, get_two_days_ago_date
-from ..utils.sign_state import SignType, get_run_lock, signing_state
+from ..utils.sign_state import (
+    SignType,
+    get_run_day,
+    get_run_lock,
+    reset_run_lock,
+    set_run_day,
+    signing_state,
+)
 from .new_sign import rover_auto_sign_task, rover_sign_up_handler
 
 sv_waves_sign = SV("RoverSign-签到", priority=1)
@@ -52,11 +59,17 @@ async def _run_sign_task(sign_type: SignType) -> Optional[str]:
     day = get_today_date()
     lock = get_run_lock()
     if lock.locked():
-        logger.info("[库洛签到·签到] 上一轮签到未结束，本轮延后执行")
+        if get_run_day() != day:
+            logger.warning(f"[库洛签到·签到] {get_run_day()} 开始的那一轮仍未结束，不再等待")
+            reset_run_lock()
+            lock = get_run_lock()
+        else:
+            logger.info("[库洛签到·签到] 上一轮签到未结束，本轮延后执行")
     async with lock:
         if get_today_date() != day:
             logger.warning(f"[库洛签到·签到] {day} 的签到延后已跨天，放弃本轮")
             return None
+        set_run_day(day)
         signing_state.set_state(sign_type)
         try:
             return await rover_auto_sign_task()

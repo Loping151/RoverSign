@@ -441,9 +441,9 @@ async def rover_auto_sign_task():
 
         logger.info(f"[库洛签到·签到] 总用户数：{len(_all_user_list)}")
 
-        sign_map: Dict[str, RoverSign] = {
-            r.uid: r for r in await RoverSign.get_all_sign_data_by_date()
-        }
+        sign_map: Dict[str, RoverSign] = {}
+        for r in await RoverSign.get_all_sign_data_by_date():
+            sign_map.setdefault(r.uid, r)
 
         # 社区任务按账号(cookie)算，任一角色下记了完成就算完成
         bbs_done_cookies = set()
@@ -523,7 +523,7 @@ async def rover_auto_sign_task():
     group_bbs_msgs = {}
     all_bbs_msgs = {"failed": 0, "success": 0}
 
-    _USER_TIMEOUT = 120  # 单个角色签到超时（秒）
+    _USER_TIMEOUT = 120  # 单步超时（秒）
 
     def _report_request_failed(user: WavesUser, res, is_game: bool):
         if res.is_token_invalid or res.is_bat_token_invalid:
@@ -539,106 +539,111 @@ async def rover_auto_sign_task():
             targets = (private_waves_sign_msgs, group_waves_sign_msgs, all_waves_sign_msgs)
         push_failed_msg(user.bot_id, user.uid, gid, user.user_id, im, *targets, bot_self)
 
-    async def _process_job_inner(job: _SignJob):
-        await asyncio.sleep(random.random() * 1.5)
+    async def _step(coro, label: str):
+        """每一步单独限时、单独兜异常，互不拖累"""
+        try:
+            return await asyncio.wait_for(coro, timeout=_USER_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning(f"[库洛签到·自动] {label} 超时（{_USER_TIMEOUT}s），跳过")
+        except Exception as e:
+            logger.error(f"[库洛签到·自动] {label} 异常: {e}")
+        return None
 
+    async def _login(job: _SignJob, first: WavesUser, game_users: List[WavesUser]) -> bool:
+        login_res = await rover_api.login_log(first.uid, job.cookie, game_id=first.game_id)
+        if login_res.success:
+            return True
+        if login_res.is_bat_token_invalid:
+            await rover_api.refresh_bat_token(first)
+            return False
+        for user in game_users:
+            await login_res.mark_cookie_invalid(user.uid, job.cookie)
+            _report_request_failed(user, login_res, True)
+        if job.bbs_user and all(job.bbs_user is not u for u in game_users):
+            await login_res.mark_cookie_invalid(job.bbs_user.uid, job.cookie)
+            _report_request_failed(job.bbs_user, login_res, False)
+        return False
+
+    async def _game_sign(job: _SignJob, user: WavesUser):
+        report_gid, report_bot_self = _resolve_report_gid(user, sub_index)
+        rover_sign = await RoverSign.get_sign_data(user.uid)
+
+        if user.game_id == PGR_GAME_ID:
+            if rover_sign and SignStatus.pgr_game_sign_complete(rover_sign):
+                return
+            await asyncio.sleep(random.randint(1, 2))
+            logger.info(f"[库洛签到·战双签到] 开始为 UID {user.uid} 执行战双签到")
+            await single_pgr_daily_sign(
+                user.bot_id,
+                user.uid,
+                report_gid,
+                user.user_id,
+                job.cookie,
+                private_pgr_sign_msgs,
+                group_pgr_sign_msgs,
+                all_pgr_sign_msgs,
+                report_bot_self,
+            )
+        else:
+            if rover_sign and SignStatus.waves_game_sign_complete(rover_sign):
+                return
+            refresh_res = await rover_api.refresh_data(user.uid, job.cookie, game_id=user.game_id)
+            if not refresh_res.success:
+                if refresh_res.is_bat_token_invalid:
+                    await rover_api.refresh_bat_token(user)
+                else:
+                    await refresh_res.mark_cookie_invalid(user.uid, job.cookie)
+                    _report_request_failed(user, refresh_res, True)
+                return
+            await asyncio.sleep(random.randint(1, 2))
+            await single_daily_sign(
+                user.bot_id,
+                user.uid,
+                report_gid,
+                user.user_id,
+                job.cookie,
+                private_waves_sign_msgs,
+                group_waves_sign_msgs,
+                all_waves_sign_msgs,
+                report_bot_self,
+            )
+
+        await asyncio.sleep(random.random() * 2)
+
+    async def _bbs_task(job: _SignJob, user: WavesUser):
+        rover_signs = [await RoverSign.get_sign_data(uid) for uid in _token_dict.get(job.cookie, [])]
+        if any(r and SignStatus.bbs_sign_complete(r, bbs_link_config) for r in rover_signs):
+            logger.debug(f"[库洛签到·社区] UID {user.uid} 今日已完成，跳过")
+            return
+        report_gid, report_bot_self = _resolve_report_gid(user, sub_index)
+        await single_task(
+            user.bot_id,
+            user.uid,
+            report_gid,
+            user.user_id,
+            job.cookie,
+            private_bbs_msgs,
+            group_bbs_msgs,
+            all_bbs_msgs,
+            report_bot_self,
+        )
+        await asyncio.sleep(random.randint(2, 4))
+
+    async def process_job(semaphore, job: _SignJob):
         game_users = list(job.game_users.values())
         first = game_users[0] if game_users else job.bbs_user
         if first is None:
             return
-
-        async with rover_api.session_scope():
-            login_res = await rover_api.login_log(first.uid, job.cookie, game_id=first.game_id)
-            if not login_res.success:
-                if login_res.is_bat_token_invalid:
-                    await rover_api.refresh_bat_token(first)
-                else:
-                    for user in game_users:
-                        await login_res.mark_cookie_invalid(user.uid, job.cookie)
-                        _report_request_failed(user, login_res, True)
-                    if job.bbs_user and all(job.bbs_user is not u for u in game_users):
-                        await login_res.mark_cookie_invalid(job.bbs_user.uid, job.cookie)
-                        _report_request_failed(job.bbs_user, login_res, False)
-                return
-
-            for user in game_users:
-                report_gid, report_bot_self = _resolve_report_gid(user, sub_index)
-                rover_sign = await RoverSign.get_sign_data(user.uid)
-
-                if user.game_id == PGR_GAME_ID:
-                    if rover_sign and SignStatus.pgr_game_sign_complete(rover_sign):
-                        continue
-                    await asyncio.sleep(random.randint(1, 2))
-                    logger.info(f"[库洛签到·战双签到] 开始为 UID {user.uid} 执行战双签到")
-                    await single_pgr_daily_sign(
-                        user.bot_id,
-                        user.uid,
-                        report_gid,
-                        user.user_id,
-                        job.cookie,
-                        private_pgr_sign_msgs,
-                        group_pgr_sign_msgs,
-                        all_pgr_sign_msgs,
-                        report_bot_self,
-                    )
-                else:
-                    if rover_sign and SignStatus.waves_game_sign_complete(rover_sign):
-                        continue
-                    refresh_res = await rover_api.refresh_data(
-                        user.uid, job.cookie, game_id=user.game_id
-                    )
-                    if not refresh_res.success:
-                        if refresh_res.is_bat_token_invalid:
-                            await rover_api.refresh_bat_token(user)
-                        else:
-                            await refresh_res.mark_cookie_invalid(user.uid, job.cookie)
-                            _report_request_failed(user, refresh_res, True)
-                        continue
-                    await asyncio.sleep(random.randint(1, 2))
-                    await single_daily_sign(
-                        user.bot_id,
-                        user.uid,
-                        report_gid,
-                        user.user_id,
-                        job.cookie,
-                        private_waves_sign_msgs,
-                        group_waves_sign_msgs,
-                        all_waves_sign_msgs,
-                        report_bot_self,
-                    )
-
-                await asyncio.sleep(random.random() * 2)
-
-            user = job.bbs_user
-            if user:
-                rover_signs = [await RoverSign.get_sign_data(uid) for uid in _token_dict.get(job.cookie, [])]
-                if any(r and SignStatus.bbs_sign_complete(r, bbs_link_config) for r in rover_signs):
-                    logger.debug(f"[库洛签到·社区] UID {user.uid} 今日已完成，跳过")
-                else:
-                    report_gid, report_bot_self = _resolve_report_gid(user, sub_index)
-                    await single_task(
-                        user.bot_id,
-                        user.uid,
-                        report_gid,
-                        user.user_id,
-                        job.cookie,
-                        private_bbs_msgs,
-                        group_bbs_msgs,
-                        all_bbs_msgs,
-                        report_bot_self,
-                    )
-                    await asyncio.sleep(random.randint(2, 4))
-        logger.info(f"[库洛签到·自动] UID {first.uid} 签到任务完成")
-
-    async def process_job(semaphore, job: _SignJob):
-        timeout = _USER_TIMEOUT * max(1, len(job.game_users))
         async with semaphore:
-            try:
-                await asyncio.wait_for(_process_job_inner(job), timeout=timeout)
-            except asyncio.TimeoutError:
-                logger.warning(f"[库洛签到·自动] 账号签到超时（{timeout}s），跳过")
-            except Exception as e:
-                logger.error(f"[库洛签到·自动] 账号签到异常: {e}")
+            await asyncio.sleep(random.random() * 1.5)
+            async with rover_api.session_scope():
+                if not await _step(_login(job, first, game_users), f"UID {first.uid} 登录校验"):
+                    return
+                for user in game_users:
+                    await _step(_game_sign(job, user), f"UID {user.uid} 游戏签到")
+                if job.bbs_user:
+                    await _step(_bbs_task(job, job.bbs_user), f"UID {job.bbs_user.uid} 社区任务")
+            logger.info(f"[库洛签到·自动] UID {first.uid} 签到任务完成")
 
     if not jobs:
         return "暂无需要签到的账号"
