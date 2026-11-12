@@ -66,7 +66,12 @@ async def do_sign_in(taskData, uid, token, rover_sign: RoverSignData):
 
     # 用户签到
     sign_in_res = await rover_api.do_sign_in(uid, token)
-    if not sign_in_res or not sign_in_res.success:
+    if not sign_in_res:
+        return False
+    if sign_in_res.code == 1511:
+        rover_sign.bbs_sign = SignStatus.BBS_SIGN
+        return True
+    if not sign_in_res.success:
         return False
     if sign_in_res.code == 200:
         # 签到成功

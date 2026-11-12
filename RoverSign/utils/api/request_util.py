@@ -101,9 +101,17 @@ def check_send_master_info(code: int, msg: str, data: Optional[T] = None) -> boo
     if code in NOT_SEND_MASTER_INFO_CODES:
         return False
 
-    import inspect
+    import sys
 
-    callers = [f.function for f in inspect.stack()[5:8][::-1]]
+    callers = []
+    try:
+        frame = sys._getframe(5)
+    except ValueError:
+        frame = None
+    while frame is not None and len(callers) < 3:
+        callers.append(frame.f_code.co_name)
+        frame = frame.f_back
+    callers.reverse()
     logger.warning(f"[库洛签到·UID工具] {'.'.join(callers)} code: {code} msg: {msg} data: {data}")
     return isinstance(msg, str) and msg != ""
 

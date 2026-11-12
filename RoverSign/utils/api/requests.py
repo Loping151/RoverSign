@@ -1,6 +1,8 @@
 import asyncio
-import inspect
 import json
+import sys
+from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Mapping, Optional, Union
 
@@ -41,8 +43,25 @@ from ..util import timed_async_cache
 from .request_util import KURO_VERSION, KuroApiResp, get_base_header
 
 
+_shared_session: ContextVar[Optional[ClientSession]] = ContextVar(
+    "roversign_shared_session", default=None
+)
+
+
 class RoverRequest:
     ssl_verify = True
+
+    @asynccontextmanager
+    async def session_scope(self):
+        """作用域内的请求复用同一个连接"""
+        async with ClientSession(
+            connector=TCPConnector(verify_ssl=self.ssl_verify)
+        ) as client:
+            token = _shared_session.set(client)
+            try:
+                yield client
+            finally:
+                _shared_session.reset(token)
 
     def is_net(self, roleId):
         _temp = int(roleId)
@@ -425,44 +444,52 @@ class RoverRequest:
             header = await get_base_header()
 
         proxy_func = get_need_proxy_func()
-        if inspect.stack()[1].function in proxy_func or "all" in proxy_func:
+        if "all" in proxy_func or sys._getframe(1).f_code.co_name in proxy_func:
             proxy_url = get_local_proxy_url()
         else:
             proxy_url = None
 
+        shared = _shared_session.get()
         for attempt in range(max_retries):
-            try:
-                async with ClientSession(
+            client = shared
+            if client is None or client.closed:
+                client = ClientSession(
                     connector=TCPConnector(verify_ssl=self.ssl_verify)
-                ) as client:
-                    async with client.request(
-                        method,
-                        url=url,
-                        headers=header,
-                        params=params,
-                        json=json_data,
-                        data=data,
-                        proxy=proxy_url,
-                        timeout=ClientTimeout(10),
-                    ) as resp:
+                )
+            try:
+                async with client.request(
+                    method,
+                    url=url,
+                    headers=header,
+                    params=params,
+                    json=json_data,
+                    data=data,
+                    proxy=proxy_url,
+                    timeout=ClientTimeout(10),
+                ) as resp:
+                    try:
+                        raw_data = await resp.json()
+                    except ContentTypeError:
+                        _raw_data = await resp.text()
+                        raw_data = {"code": ROVER_CODE_999, "data": _raw_data}
+                    if isinstance(raw_data, dict):
                         try:
-                            raw_data = await resp.json()
-                        except ContentTypeError:
-                            _raw_data = await resp.text()
-                            raw_data = {"code": ROVER_CODE_999, "data": _raw_data}
-                        if isinstance(raw_data, dict):
-                            try:
-                                raw_data["data"] = json.loads(raw_data.get("data", ""))
-                            except Exception:
-                                pass
-                        logger.debug(
-                            f"url:[{url}] params:[{params}] headers:[{header}] data:[{data}] raw_data:{raw_data}"
-                        )
-                        return KuroApiResp[Any].model_validate(raw_data)
+                            raw_data["data"] = json.loads(raw_data.get("data", ""))
+                        except Exception:
+                            pass
+                    logger.debug(
+                        f"url:[{url}] params:[{params}] headers:[{header}] data:[{data}] raw_data:{raw_data}"
+                    )
+                    return KuroApiResp[Any].model_validate(raw_data)
             except Exception as e:
-                logger.exception(f"url:[{url}] attempt {attempt + 1} failed", e)
                 if attempt < max_retries - 1:
+                    logger.warning(f"url:[{url}] attempt {attempt + 1} failed: {e!r}")
                     await asyncio.sleep(retry_delay)
+                else:
+                    logger.exception(f"url:[{url}] attempt {attempt + 1} failed: {e!r}")
+            finally:
+                if client is not shared:
+                    await client.close()
 
         return KuroApiResp[Any].err(
             "请求服务器失败，已达最大重试次数", code=ROVER_CODE_999

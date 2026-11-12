@@ -1,6 +1,7 @@
 import asyncio
 import random
-from typing import Dict, List, Literal, Optional
+from dataclasses import dataclass, field
+from typing import Dict, List, Literal, Optional, Tuple
 
 from gsuid_core.bot import Bot
 from gsuid_core.logger import logger
@@ -397,30 +398,38 @@ async def _load_sign_subscribe_index() -> Dict:
     return sub_index
 
 
+@dataclass
+class _SignJob:
+    """同一 cookie 的一组任务：登录一次，每个角色签一次，社区做一次"""
+
+    cookie: str
+    game_users: Dict[Tuple[str, int], WavesUser] = field(default_factory=dict)
+    bbs_user: Optional[WavesUser] = None
+
+
 async def rover_auto_sign_task():
 
-    need_user_list: List[WavesUser] = []
-    bbs_user = set()
-    waves_sign_user = set()
-    pgr_sign_user = set()
+    jobs: Dict[str, _SignJob] = {}
     bbs_link_config = get_bbs_link_config()
     _token_dict: Dict[str, list[str]] = {}
     auto_games = RoverSignConfig.get_config("SchedSigninGame").data
     auto_waves = "鸣潮" in auto_games
     auto_pgr = "战双" in auto_games
-    if (
-        RoverSignConfig.get_config("BBSSchedSignin").data
-        or RoverSignConfig.get_config("SchedSignin").data
-        or RoverSignConfig.get_config("SigninMaster").data
-    ):
+    sched_game = bool(RoverSignConfig.get_config("SchedSignin").data)
+    sched_bbs = bool(RoverSignConfig.get_config("BBSSchedSignin").data)
+    master = bool(RoverSignConfig.get_config("SigninMaster").data)
+
+    # 推送去向以订阅记录为准，预载一次
+    sub_index = await _load_sign_subscribe_index()
+
+    if sched_bbs or sched_game or master:
         # 获取所有用户（SigninMaster 和定时任务都需要）
         _all_user_list: List[WavesUser] = await WavesUser.get_waves_all_user()
 
         # 获取活跃用户集合（仅签到活跃账号 / 全部签到跳过不活跃 共用）
         sign_active_only = RoverSignConfig.get_config("SignActiveUserOnly").data
         master_skip_inactive = bool(
-            RoverSignConfig.get_config("SigninMaster").data
-            and RoverSignConfig.get_config("SigninMasterSkipInactive").data
+            master and RoverSignConfig.get_config("SigninMasterSkipInactive").data
         )
         if sign_active_only or master_skip_inactive:
             active_days = RoverSignConfig.get_config("ActiveUserDays").data
@@ -432,92 +441,75 @@ async def rover_auto_sign_task():
 
         logger.info(f"[库洛签到·签到] 总用户数：{len(_all_user_list)}")
 
+        sign_map: Dict[str, RoverSign] = {
+            r.uid: r for r in await RoverSign.get_all_sign_data_by_date()
+        }
+
+        # 社区任务按账号(cookie)算，任一角色下记了完成就算完成
+        bbs_done_cookies = set()
+        for user in _all_user_list:
+            _token_dict.setdefault(user.cookie, []).append(user.uid)
+            rover_sign = sign_map.get(user.uid)
+            if rover_sign and SignStatus.bbs_sign_complete(rover_sign, bbs_link_config):
+                bbs_done_cookies.add(user.cookie)
+
+        def _prefer(prev: Optional[WavesUser], user: WavesUser) -> bool:
+            if prev is None:
+                return True
+            return (prev.user_id, prev.bot_id) not in sub_index and (
+                user.user_id,
+                user.bot_id,
+            ) in sub_index
+
         for _i, user in enumerate(_all_user_list):
-            _uid = user.user_id
-            if not _uid:
+            if _i % 100 == 0:
+                await asyncio.sleep(0)
+
+            if not user.user_id or not user.cookie or user.status:
                 continue
 
             # 国际服鸣潮 UID 走 launcher SDK，KuroBBS 签到不支持，跳过
             if user.game_id == WAVES_GAME_ID and rover_api.is_net(user.uid):
                 continue
 
-            if _i % 100 == 0:
-                await asyncio.sleep(0)
-
-            is_signed_waves_game = False
-            is_signed_pgr_game = False
-            is_signed_bbs = False
-            rover_sign: Optional[RoverSign] = await RoverSign.get_sign_data(user.uid)
-            if rover_sign:
-                if SignStatus.waves_game_sign_complete(rover_sign):
-                    is_signed_waves_game = True
-                if SignStatus.pgr_game_sign_complete(rover_sign):
-                    is_signed_pgr_game = True
-                if SignStatus.bbs_sign_complete(rover_sign, bbs_link_config):
-                    is_signed_bbs = True
-
-            _token_dict.setdefault(user.cookie, []).append(user.uid)
-            if user.game_id == WAVES_GAME_ID:
-                if is_signed_waves_game and is_signed_bbs:
-                    continue
-            elif user.game_id == PGR_GAME_ID:
-                if is_signed_pgr_game and is_signed_bbs:
-                    continue
-            elif is_signed_bbs:
-                continue
-
-            if RoverSignConfig.get_config("SigninMaster").data:
+            if master:
                 if (
                     master_skip_inactive
                     and _active_user_set is not None
                     and user.uid not in _active_user_set
                 ):
                     continue
-                is_need = not is_signed_bbs
-                if not is_signed_bbs:
-                    bbs_user.add(user.uid)
-                # 根据 game_id 判断加入哪个游戏签到列表
-                if user.game_id == WAVES_GAME_ID and not is_signed_waves_game:
-                    if auto_waves:
-                        waves_sign_user.add(user.uid)
-                        is_need = True
-                elif user.game_id == PGR_GAME_ID and not is_signed_pgr_game:
-                    if auto_pgr:
-                        pgr_sign_user.add(user.uid)
-                        is_need = True
-                if is_need:
-                    need_user_list.append(user)
+                want_game = True
+                want_bbs = True
+            else:
+                if _active_user_set is not None and user.uid not in _active_user_set:
+                    continue
+                want_game = sched_game and user.sign_switch != "off"
+                want_bbs = sched_bbs and user.bbs_sign_switch != "off"
+
+            rover_sign = sign_map.get(user.uid)
+            if user.game_id == WAVES_GAME_ID:
+                want_game = want_game and auto_waves and not (
+                    rover_sign and SignStatus.waves_game_sign_complete(rover_sign)
+                )
+            elif user.game_id == PGR_GAME_ID:
+                want_game = want_game and auto_pgr and not (
+                    rover_sign and SignStatus.pgr_game_sign_complete(rover_sign)
+                )
+            else:
+                want_game = False
+            want_bbs = want_bbs and user.cookie not in bbs_done_cookies
+
+            if not want_game and not want_bbs:
                 continue
 
-            # 定时任务：判断是否开启了活跃过滤
-            if _active_user_set is not None and user.uid not in _active_user_set:
-                # 开启了活跃过滤，且该用户不活跃，跳过
-                continue
-
-            is_need = False
-            if user.bbs_sign_switch != "off":
-                # 如果 bbs_sign_switch 不为 'off'，添加到 user_list 中
-                bbs_user.add(user.uid)
-                is_need = True
-
-            if user.sign_switch != "off":
-                # 如果 sign_switch 不为 'off'，根据 game_id 判断加入哪个游戏签到列表
-                if user.game_id == WAVES_GAME_ID:
-                    if auto_waves:
-                        waves_sign_user.add(user.uid)
-                        is_need = True
-                elif user.game_id == PGR_GAME_ID:
-                    if auto_pgr:
-                        pgr_sign_user.add(user.uid)
-                        is_need = True
-                else:
-                    is_need = True
-
-            if is_need:
-                need_user_list.append(user)
-
-    # 推送去向以订阅记录为准，预载一次
-    sub_index = await _load_sign_subscribe_index()
+            job = jobs.setdefault(user.cookie, _SignJob(user.cookie))
+            if want_game:
+                key = (user.uid, user.game_id)
+                if _prefer(job.game_users.get(key), user):
+                    job.game_users[key] = user
+            if want_bbs and _prefer(job.bbs_user, user):
+                job.bbs_user = user
 
     private_waves_sign_msgs = {}
     group_waves_sign_msgs = {}
@@ -531,134 +523,135 @@ async def rover_auto_sign_task():
     group_bbs_msgs = {}
     all_bbs_msgs = {"failed": 0, "success": 0}
 
-    _USER_TIMEOUT = 120  # 单个用户签到超时（秒）
+    _USER_TIMEOUT = 120  # 单个角色签到超时（秒）
 
-    def _report_request_failed(user: WavesUser, res, gid: str, bot_self):
+    def _report_request_failed(user: WavesUser, res, is_game: bool):
         if res.is_token_invalid or res.is_bat_token_invalid:
             return
+        gid, bot_self = _resolve_report_gid(user, sub_index)
         im = f"签到失败：{res.throw_msg()}"
-        if user.uid in pgr_sign_user:
+        if not is_game:
+            targets = (private_bbs_msgs, group_bbs_msgs, all_bbs_msgs)
+        elif user.game_id == PGR_GAME_ID:
             targets = (private_pgr_sign_msgs, group_pgr_sign_msgs, all_pgr_sign_msgs)
             im = f"[战双] {im}"
-        elif user.uid in waves_sign_user:
-            targets = (private_waves_sign_msgs, group_waves_sign_msgs, all_waves_sign_msgs)
         else:
-            targets = (private_bbs_msgs, group_bbs_msgs, all_bbs_msgs)
+            targets = (private_waves_sign_msgs, group_waves_sign_msgs, all_waves_sign_msgs)
         push_failed_msg(user.bot_id, user.uid, gid, user.user_id, im, *targets, bot_self)
 
-    async def _process_user_inner(user: WavesUser):
+    async def _process_job_inner(job: _SignJob):
         await asyncio.sleep(random.random() * 1.5)
-        if user.cookie == "":
-            return
-        if user.status:
-            return
 
-        user_game_id = user.game_id
-
-        # 推送去向以开启时创建的订阅记录为准（群订阅→群发/私聊订阅→私聊/无订阅→不推）
-        report_gid, report_bot_self = _resolve_report_gid(user, sub_index)
-
-        login_res = await rover_api.login_log(user.uid, user.cookie, game_id=user_game_id)
-        if not login_res.success:
-            if login_res.is_bat_token_invalid:
-                if waves_user := await rover_api.refresh_bat_token(user):
-                    user.cookie = waves_user.cookie
-            else:
-                await login_res.mark_cookie_invalid(user.uid, user.cookie)
-                _report_request_failed(user, login_res, report_gid, report_bot_self)
+        game_users = list(job.game_users.values())
+        first = game_users[0] if game_users else job.bbs_user
+        if first is None:
             return
 
-        refresh_res = await rover_api.refresh_data(user.uid, user.cookie, game_id=user_game_id)
-        if not refresh_res.success:
-            if refresh_res.is_bat_token_invalid:
-                if waves_user := await rover_api.refresh_bat_token(user):
-                    user.cookie = waves_user.cookie
-            else:
-                await refresh_res.mark_cookie_invalid(user.uid, user.cookie)
-                _report_request_failed(user, refresh_res, report_gid, report_bot_self)
-            return
+        async with rover_api.session_scope():
+            login_res = await rover_api.login_log(first.uid, job.cookie, game_id=first.game_id)
+            if not login_res.success:
+                if login_res.is_bat_token_invalid:
+                    await rover_api.refresh_bat_token(first)
+                else:
+                    for user in game_users:
+                        await login_res.mark_cookie_invalid(user.uid, job.cookie)
+                        _report_request_failed(user, login_res, True)
+                    if job.bbs_user and all(job.bbs_user is not u for u in game_users):
+                        await login_res.mark_cookie_invalid(job.bbs_user.uid, job.cookie)
+                        _report_request_failed(job.bbs_user, login_res, False)
+                return
 
-        await asyncio.sleep(random.randint(1, 2))
+            for user in game_users:
+                report_gid, report_bot_self = _resolve_report_gid(user, sub_index)
+                rover_sign = await RoverSign.get_sign_data(user.uid)
 
-        # 战双签到
-        if (
-            RoverSignConfig.get_config("SchedSignin").data and user.uid in pgr_sign_user
-        ) or RoverSignConfig.get_config("SigninMaster").data and user.uid in pgr_sign_user:
-            logger.info(f"[库洛签到·战双签到] 开始为 UID {user.uid} 执行战双签到")
-            await single_pgr_daily_sign(
-                user.bot_id,
-                user.uid,
-                report_gid,
-                user.user_id,
-                user.cookie,
-                private_pgr_sign_msgs,
-                group_pgr_sign_msgs,
-                all_pgr_sign_msgs,
-                report_bot_self,
-            )
+                if user.game_id == PGR_GAME_ID:
+                    if rover_sign and SignStatus.pgr_game_sign_complete(rover_sign):
+                        continue
+                    await asyncio.sleep(random.randint(1, 2))
+                    logger.info(f"[库洛签到·战双签到] 开始为 UID {user.uid} 执行战双签到")
+                    await single_pgr_daily_sign(
+                        user.bot_id,
+                        user.uid,
+                        report_gid,
+                        user.user_id,
+                        job.cookie,
+                        private_pgr_sign_msgs,
+                        group_pgr_sign_msgs,
+                        all_pgr_sign_msgs,
+                        report_bot_self,
+                    )
+                else:
+                    if rover_sign and SignStatus.waves_game_sign_complete(rover_sign):
+                        continue
+                    refresh_res = await rover_api.refresh_data(
+                        user.uid, job.cookie, game_id=user.game_id
+                    )
+                    if not refresh_res.success:
+                        if refresh_res.is_bat_token_invalid:
+                            await rover_api.refresh_bat_token(user)
+                        else:
+                            await refresh_res.mark_cookie_invalid(user.uid, job.cookie)
+                            _report_request_failed(user, refresh_res, True)
+                        continue
+                    await asyncio.sleep(random.randint(1, 2))
+                    await single_daily_sign(
+                        user.bot_id,
+                        user.uid,
+                        report_gid,
+                        user.user_id,
+                        job.cookie,
+                        private_waves_sign_msgs,
+                        group_waves_sign_msgs,
+                        all_waves_sign_msgs,
+                        report_bot_self,
+                    )
 
-            await asyncio.sleep(random.random() * 2)
+                await asyncio.sleep(random.random() * 2)
 
-        # 鸣潮签到
-        if (
-            RoverSignConfig.get_config("SchedSignin").data and user.uid in waves_sign_user
-        ) or RoverSignConfig.get_config("SigninMaster").data and user.uid in waves_sign_user:
-            await single_daily_sign(
-                user.bot_id,
-                user.uid,
-                report_gid,
-                user.user_id,
-                user.cookie,
-                private_waves_sign_msgs,
-                group_waves_sign_msgs,
-                all_waves_sign_msgs,
-                report_bot_self,
-            )
+            user = job.bbs_user
+            if user:
+                rover_signs = [await RoverSign.get_sign_data(uid) for uid in _token_dict.get(job.cookie, [])]
+                if any(r and SignStatus.bbs_sign_complete(r, bbs_link_config) for r in rover_signs):
+                    logger.debug(f"[库洛签到·社区] UID {user.uid} 今日已完成，跳过")
+                else:
+                    report_gid, report_bot_self = _resolve_report_gid(user, sub_index)
+                    await single_task(
+                        user.bot_id,
+                        user.uid,
+                        report_gid,
+                        user.user_id,
+                        job.cookie,
+                        private_bbs_msgs,
+                        group_bbs_msgs,
+                        all_bbs_msgs,
+                        report_bot_self,
+                    )
+                    await asyncio.sleep(random.randint(2, 4))
+        logger.info(f"[库洛签到·自动] UID {first.uid} 签到任务完成")
 
-            await asyncio.sleep(random.random() * 2)
-
-        # 社区签到
-        if (
-            RoverSignConfig.get_config("BBSSchedSignin").data
-            and user.uid in bbs_user
-        ) or RoverSignConfig.get_config("SigninMaster").data:
-            # 先检查本地签到状态，避免重复请求 API
-            rover_sign = [await RoverSign.get_sign_data(uid) for uid in _token_dict.get(user.cookie, [])]
-            if any([rover and SignStatus.bbs_sign_complete(rover, bbs_link_config) for rover in rover_sign]):
-                # 已完成社区签到，跳过
-                logger.debug(f"[库洛签到·社区] UID {user.uid} 今日已完成，跳过")
-            else:
-                await single_task(
-                    user.bot_id,
-                    user.uid,
-                    report_gid,
-                    user.user_id,
-                    user.cookie,
-                    private_bbs_msgs,
-                    group_bbs_msgs,
-                    all_bbs_msgs,
-                    report_bot_self,
-                )
-
-            await asyncio.sleep(random.randint(2, 4))
-        logger.info(f"[库洛签到·自动] UID {user.uid} 签到任务完成")
-
-    async def process_user(semaphore, user: WavesUser):
-        logger.debug(f"[库洛签到·自动] 处理 UID {user.uid} 的签到任务")
+    async def process_job(semaphore, job: _SignJob):
+        timeout = _USER_TIMEOUT * max(1, len(job.game_users))
         async with semaphore:
             try:
-                await asyncio.wait_for(_process_user_inner(user), timeout=_USER_TIMEOUT)
+                await asyncio.wait_for(_process_job_inner(job), timeout=timeout)
             except asyncio.TimeoutError:
-                logger.warning(f"[库洛签到·自动] UID {user.uid} 签到超时（{_USER_TIMEOUT}s），跳过")
+                logger.warning(f"[库洛签到·自动] 账号签到超时（{timeout}s），跳过")
             except Exception as e:
-                logger.error(f"[库洛签到·自动] UID {user.uid} 签到异常: {e}")
+                logger.error(f"[库洛签到·自动] 账号签到异常: {e}")
 
-    if not need_user_list:
+    if not jobs:
         return "暂无需要签到的账号"
+
+    logger.info(
+        f"[库洛签到·签到] 本轮待处理账号：{len(jobs)}，"
+        f"游戏签到：{sum(len(j.game_users) for j in jobs.values())}，"
+        f"社区任务：{sum(1 for j in jobs.values() if j.bbs_user)}"
+    )
 
     max_concurrent: int = RoverSignConfig.get_config("SigninConcurrentNum").data
     semaphore = asyncio.Semaphore(max_concurrent)
-    tasks = [process_user(semaphore, user) for user in need_user_list]
+    tasks = [process_job(semaphore, job) for job in jobs.values()]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for result in results:
         if isinstance(result, Exception):

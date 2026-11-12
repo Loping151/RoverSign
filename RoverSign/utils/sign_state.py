@@ -2,7 +2,10 @@
 签到状态文件管理模块
 用于记录和恢复签到任务状态，支持重启后继续执行
 """
+import asyncio
 import json
+import sys
+import types
 from typing import Optional, Literal
 from datetime import datetime
 
@@ -14,6 +17,18 @@ DATA_PATH = get_res_path() / "RoverSign"
 STATE_FILE = DATA_PATH / "signing_state.json"
 
 SignType = Literal["auto", "manual"]  # auto=自动签到, manual=全部签到
+
+_HOLDER = "_roversign_runtime"
+
+
+def get_run_lock() -> asyncio.Lock:
+    """全局签到锁，挂在 sys.modules 上，插件重载后仍是同一把"""
+    holder = sys.modules.setdefault(_HOLDER, types.ModuleType(_HOLDER))
+    lock = getattr(holder, "run_lock", None)
+    if lock is None:
+        lock = asyncio.Lock()
+        setattr(holder, "run_lock", lock)
+    return lock
 
 
 class SigningState:

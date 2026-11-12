@@ -8,8 +8,10 @@ from gsuid_core.sv import SV
 from ..roversign_config.roversign_config import RoverSignConfig
 from ..utils.constant import BoardcastTypeEnum
 from ..utils.database.models import RoverSign
-from ..utils.util import get_two_days_ago_date
-from ..utils.sign_state import signing_state
+from typing import Optional
+
+from ..utils.util import get_today_date, get_two_days_ago_date
+from ..utils.sign_state import SignType, get_run_lock, signing_state
 from .new_sign import rover_auto_sign_task, rover_sign_up_handler
 
 sv_waves_sign = SV("RoverSign-签到", priority=1)
@@ -45,17 +47,27 @@ async def rover_user_sign(bot: Bot, ev: Event):
     return await bot.send(msg)
 
 
-async def rover_auto_sign():
-    # 设置自动签到状态
-    signing_state.set_state("auto")
+async def _run_sign_task(sign_type: SignType) -> Optional[str]:
+    """同一时间只跑一轮；上一轮未结束则排队延后，延后到跨天则放弃"""
+    day = get_today_date()
+    lock = get_run_lock()
+    if lock.locked():
+        logger.info("[库洛签到·签到] 上一轮签到未结束，本轮延后执行")
+    async with lock:
+        if get_today_date() != day:
+            logger.warning(f"[库洛签到·签到] {day} 的签到延后已跨天，放弃本轮")
+            return None
+        signing_state.set_state(sign_type)
+        try:
+            return await rover_auto_sign_task()
+        finally:
+            signing_state.clear_state()
 
-    try:
-        msg = await rover_auto_sign_task()
-    except Exception:
-        signing_state.clear_state()
-        raise
-    # 签到完成，清除状态文件
-    signing_state.clear_state()
+
+async def rover_auto_sign():
+    msg = await _run_sign_task("auto")
+    if msg is None:
+        return
 
     subscribes = await gs_subscribe.get_subscribe(BoardcastTypeEnum.SIGN_RESULT)
     if subscribes:
@@ -140,23 +152,15 @@ else:
 
 @waves_sign_all.on_fullmatch(("全部签到", "qbqd"), block=True)
 async def rover_sign_recheck_all(bot: Bot, ev: Event):
-    # 检查是否已经在签到中
-    if signing_state.is_signing():
+    if get_run_lock().locked():
         state = signing_state.get_state()
         sign_type_text = "自动签到" if state and state.get("type") == "auto" else "全部签到"
         return await bot.send(f"[RoverSign] 正在执行{sign_type_text}，请稍后...")
 
-    # 设置全部签到状态
-    signing_state.set_state("manual")
-
     await bot.send("[RoverSign] [全部签到] 已开始执行!")
-    try:
-        msg = await rover_auto_sign_task()
-    except Exception:
-        signing_state.clear_state()
-        raise
-    # 签到完成，清除状态文件
-    signing_state.clear_state()
+    msg = await _run_sign_task("manual")
+    if msg is None:
+        return
     await bot.send("[RoverSign] [全部签到] 执行完成!")
     await bot.send(msg)
 
@@ -191,31 +195,33 @@ async def clear_rover_sign_record():
 # 启动时检查是否需要恢复签到任务
 async def check_and_resume_signing():
     """启动时检查状态文件，如果有未完成的签到则继续执行"""
-    if signing_state.should_resume():
-        state = signing_state.get_state()
-        if not state:
-            return
+    if get_run_lock().locked():
+        return
+    if not signing_state.should_resume():
+        return
+    state = signing_state.get_state()
+    if not state:
+        return
+    if not str(state.get("start_time", "")).startswith(get_today_date()):
+        logger.info("[库洛签到·签到] 未完成的签到任务不是今天的，不再恢复")
+        signing_state.clear_state()
+        return
 
-        sign_type = state.get("type", "auto")
-        logger.warning(f"[库洛签到·签到] 检测到未完成的签到任务，正在恢复: type={sign_type}")
+    sign_type = state.get("type", "auto")
+    logger.warning(f"[库洛签到·签到] 检测到未完成的签到任务，正在恢复: type={sign_type}")
 
-        # 延迟5秒再执行，确保系统完全启动
-        import asyncio
-        await asyncio.sleep(5)
+    # 延迟5秒再执行，确保系统完全启动
+    import asyncio
+    await asyncio.sleep(5)
 
-        try:
-            if sign_type == "auto":
-                # 恢复自动签到
-                await rover_auto_sign()
-            else:
-                # 恢复全部签到
-                signing_state.set_state("manual")
-                msg = await rover_auto_sign_task()
-                logger.info(f"[库洛签到·签到] 恢复的全部签到已完成: {msg}")
-                signing_state.clear_state()
-        except Exception as e:
-            logger.error(f"[库洛签到·签到] 恢复签到任务时出错: {e}")
-            signing_state.clear_state()
+    try:
+        if sign_type == "auto":
+            await rover_auto_sign()
+        else:
+            msg = await _run_sign_task("manual")
+            logger.info(f"[库洛签到·签到] 恢复的全部签到已完成: {msg}")
+    except Exception as e:
+        logger.error(f"[库洛签到·签到] 恢复签到任务时出错: {e}")
 
 
 # 注册启动时的恢复任务（启动后10秒执行）
