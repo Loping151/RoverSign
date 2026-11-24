@@ -37,6 +37,8 @@ SIGN_TIME = RoverSignConfig.get_config("SignTime").data
         "社区任务",
         "库街区签到",
         "sign",
+        "打卡",
+        "今日签到",
     ),
     block=True,
     to_ai="""用户主动执行鸣潮库街区签到（每日打卡 + 完成社区任务）。
